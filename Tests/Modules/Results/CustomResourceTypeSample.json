@@ -688,18 +688,6 @@
           ]
         }
       ]
-    },
-    "ModuleRoleSecretsPolicyCondition": {
-      "Fn::Not": [
-        {
-          "Fn::Equals": [
-            {
-              "Ref": "Secrets"
-            },
-            ""
-          ]
-        }
-      ]
     }
   },
   "Metadata": {

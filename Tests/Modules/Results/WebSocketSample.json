@@ -211,39 +211,6 @@
                 }
               ]
             },
-            "STR_MODULE_ROLE_DEADLETTERQUEUEPOLICY": {
-              "Fn::If": [
-                "UseCoreServices",
-                {
-                  "Ref": "ModuleRoleDeadLetterQueuePolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
-            "STR_MODULE_ROLE_DEFAULTSECRETKEYPOLICY": {
-              "Fn::If": [
-                "UseCoreServices",
-                {
-                  "Ref": "ModuleRoleDefaultSecretKeyPolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
-            "STR_MODULE_ROLE_SECRETSPOLICY": {
-              "Fn::If": [
-                "ModuleRoleSecretsPolicyCondition",
-                {
-                  "Ref": "ModuleRoleSecretsPolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
             "STR_MODULE_WEBSOCKET_URL": {
               "Fn::Sub": "wss://${ModuleWebSocket}.execute-api.${AWS::Region}.${AWS::URLSuffix}/LATEST"
             }
@@ -385,39 +352,6 @@
                 "UseCoreServices",
                 {
                   "Ref": "ModuleRoleDeadLetterQueuePolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
-            "STR_MODULE_ROLE_SECRETSPOLICY": {
-              "Fn::If": [
-                "ModuleRoleSecretsPolicyCondition",
-                {
-                  "Ref": "ModuleRoleSecretsPolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
-            "STR_MODULE_ROLE_DEADLETTERQUEUEPOLICY": {
-              "Fn::If": [
-                "UseCoreServices",
-                {
-                  "Ref": "ModuleRoleDeadLetterQueuePolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
-            "STR_MODULE_ROLE_DEFAULTSECRETKEYPOLICY": {
-              "Fn::If": [
-                "UseCoreServices",
-                {
-                  "Ref": "ModuleRoleDefaultSecretKeyPolicy"
                 },
                 {
                   "Ref": "AWS::NoValue"
@@ -585,17 +519,12 @@
                   "Resource": {
                     "Fn::Sub": "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ModuleWebSocket}/LATEST/POST/@connections/*"
                   }
-                ]
-              }
+                }
+              ]
+            },
+            "PolicyName": {
+              "Fn::Sub": "${AWS::StackName}ModulePolicy"
             }
-          ]
-        },
-        "PolicyName": {
-          "Fn::Sub": "${AWS::StackName}ModuleRoleSecrets"
-        },
-        "Roles": [
-          {
-            "Ref": "ModuleRole"
           }
         ]
       }
@@ -1292,18 +1221,6 @@
                   ]
                 }
               ]
-            },
-            ""
-          ]
-        }
-      ]
-    },
-    "ModuleRoleSecretsPolicyCondition": {
-      "Fn::Not": [
-        {
-          "Fn::Equals": [
-            {
-              "Ref": "Secrets"
             },
             ""
           ]

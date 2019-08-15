@@ -151,7 +151,6 @@ namespace LambdaSharp.Tool.Cli.Deploy {
                     manifest.GetAllParameters().Any(p => p.Name == "XRayTracing")
                     && !deployParameters.Any(p => p.ParameterKey == "XRayTracing")
                 ) {
-                    deployParameters.RemoveAll(p => p.ParameterKey == "XRayTracing");
                     deployParameters.Add(new CloudFormationParameter {
                         ParameterKey = "XRayTracing",
                         ParameterValue = xRayTracingLevel.ToString()

@@ -20,7 +20,6 @@ using System;
 using System.Diagnostics;
 using McMaster.Extensions.CommandLineUtils;
 using LambdaSharp.Tool.Cli;
-using LambdaSharp.Tool.Cli.Tier;
 
 namespace LambdaSharp.Tool {
 

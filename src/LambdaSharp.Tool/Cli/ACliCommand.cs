@@ -47,9 +47,6 @@ namespace LambdaSharp.Tool.Cli {
 
     public abstract class ACliCommand : CliBase {
 
-        //--- Constants ---
-        private const string DEFAULT_API_GATEWAY_ROLE = "LambdaSharp-ApiGatewayRole";
-
         //--- Class Methods ---
         public static CommandOption AddTierOption(CommandLineApplication cmd)
             => cmd.Option("--tier|-T <NAME>", "(optional) Name of deployment tier (default: LAMBDASHARP_TIER environment variable)", CommandOptionType.SingleValue);
@@ -408,116 +405,6 @@ namespace LambdaSharp.Tool.Cli {
                 }
             }
             return gitBranch;
-        }
-
-        protected async Task<(string Arn, IEnumerable<string> MissingPolicies)> DetermineMissingApiGatewayRolePolicies(Settings settings) {
-            if((settings.ApiGatewayClient == null) || (settings.IamClient == null)) {
-                return (Arn: null, Enumerable.Empty<string>());
-            }
-
-            // inspect API Gateway role
-            try {
-                var missingPolicies = new List<string> {
-                    "AmazonAPIGatewayPushToCloudWatchLogs",
-                    "AWSXrayWriteOnlyAccess"
-                };
-
-                // retrieve the CloudWatch/X-Ray role from the API Gateway account
-                var account = await settings.ApiGatewayClient.GetAccountAsync(new GetAccountRequest());
-                if(account.CloudwatchRoleArn != null) {
-
-                    // check if the role has the expected managed policies
-                    var attachedPolicies = (await settings.IamClient.ListAttachedRolePoliciesAsync(new ListAttachedRolePoliciesRequest {
-                        RoleName = account.CloudwatchRoleArn.Split('/').Last()
-                    })).AttachedPolicies;
-                    foreach(var attachedPolicy in attachedPolicies) {
-                        missingPolicies.Remove(attachedPolicy.PolicyName);
-                    }
-                }
-                return (Arn: account.CloudwatchRoleArn, MissingPolicies: Enumerable.Empty<string>());
-            } catch(Exception) {
-                return (Arn: null, Enumerable.Empty<string>());
-            }
-        }
-
-        protected async Task CheckApiGatewayRole(Settings settings) {
-
-            // retrieve the CloudWatch/X-Ray role from the API Gateway account
-            Console.WriteLine("=> Checking API Gateway role");
-            var account = await settings.ApiGatewayClient.GetAccountAsync(new GetAccountRequest());
-            var role = await GetOrCreateRole(account.CloudwatchRoleArn?.Split('/').Last() ?? DEFAULT_API_GATEWAY_ROLE);
-
-            // check if the role has the expected managed policies; if not, attach them
-            var attachedPolicies = (await settings.IamClient.ListAttachedRolePoliciesAsync(new ListAttachedRolePoliciesRequest {
-                RoleName = role.RoleName
-            })).AttachedPolicies;
-            await CheckOrAttachPolicy("arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs");
-            await CheckOrAttachPolicy("arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess");
-
-            // update API Gateway Account role if needed
-            if(account.CloudwatchRoleArn != role.Arn) {
-                Console.WriteLine($"=> Updating API Gateway role to {role.Arn}");
-            again:
-                try {
-                    await settings.ApiGatewayClient.UpdateAccountAsync(new UpdateAccountRequest {
-                        PatchOperations = new List<PatchOperation> {
-                            new PatchOperation {
-                                Op = Op.Replace,
-                                Path = "/cloudwatchRoleArn",
-                                Value = role.Arn
-                            }
-                        }
-                    });
-                } catch(BadRequestException) {
-                    Console.WriteLine($"=> Waiting for API Gateway role changes to settle, trying again in 5 seconds");
-                    await Task.Delay(TimeSpan.FromSeconds(5));
-                } catch(TooManyRequestsException) {
-                    Console.WriteLine($"=> Update request was throttled, trying again in 2 seconds");
-                    await Task.Delay(TimeSpan.FromSeconds(2));
-                    goto again;
-                }
-            }
-
-            // local functions
-            async Task CheckOrAttachPolicy(string managedPolicyArn) {
-
-                // check if managed policy is already attached; it not, attach it
-                if(!attachedPolicies.Any(policy => policy.PolicyArn == managedPolicyArn)) {
-                    Console.WriteLine($"=> Attaching managed policy to API Gateway role: {managedPolicyArn}");
-                    await settings.IamClient.AttachRolePolicyAsync(new AttachRolePolicyRequest {
-                        PolicyArn = managedPolicyArn,
-                        RoleName = role.RoleName
-                    });
-                }
-            }
-
-            async Task<Role> GetOrCreateRole(string roleName) {
-
-                // attempt to resolve the given role by name
-            again:
-                try {
-                    return (await settings.IamClient.GetRoleAsync(new GetRoleRequest {
-                        RoleName = roleName
-                    })).Role;
-                } catch(NoSuchEntityException) {
-
-                    // check if we looked up a custom name; if so, we need to fallback to the default role and check again
-                    if(roleName != DEFAULT_API_GATEWAY_ROLE) {
-                        roleName = DEFAULT_API_GATEWAY_ROLE;
-                        goto again;
-                    }
-
-                    // IAM role not found, fallthrough to the next step
-                }
-
-                // only create the LambdaSharp API Gateway Role when the account has no role or the role no longer exists
-                Console.WriteLine("=> Creating API Gateway role");
-                return (await settings.IamClient.CreateRoleAsync(new CreateRoleRequest {
-                    RoleName = DEFAULT_API_GATEWAY_ROLE,
-                    Description = "API Gateway Role for LambdaSharp modules",
-                    AssumeRolePolicyDocument = @"{""Version"":""2012-10-17"",""Statement"":[{""Sid"": ""ApiGatewayPrincipal"",""Effect"":""Allow"",""Principal"":{""Service"":""apigateway.amazonaws.com""},""Action"":""sts:AssumeRole""}]}"
-                })).Role;
-            }
         }
     }
 }

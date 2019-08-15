@@ -119,16 +119,6 @@
       ]
     }
   },
-  "Conditions": {
-    "UseCoreServices": {
-      "Fn::Equals": [
-        {
-          "Ref": "LambdaSharpCoreServices"
-        },
-        "Enabled"
-      ]
-    }
-  },
   "Metadata": {
     "AWS::CloudFormation::Interface": {
       "ParameterLabels": {

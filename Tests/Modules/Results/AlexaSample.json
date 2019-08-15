@@ -704,18 +704,6 @@
         }
       ]
     },
-    "ModuleRoleSecretsPolicyCondition": {
-      "Fn::Not": [
-        {
-          "Fn::Equals": [
-            {
-              "Ref": "Secrets"
-            },
-            ""
-          ]
-        }
-      ]
-    },
     "MyFunctionSource1AlexaIsBlank": {
       "Fn::Equals": [
         {
