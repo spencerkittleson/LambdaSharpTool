@@ -1,10 +1,7 @@
 /*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +115,12 @@ namespace LambdaSharp.Tool {
 
         protected void LogError(Exception exception)
             => Settings.LogError(exception);
+
+        protected void LogInfo(string message)
+            => Settings.LogInfo(message);
+
+        protected void LogInfoVerbose(string message)
+            => Settings.LogInfoVerbose(message);
 
         protected List<string> ConvertToStringList(object value) {
             var result = new List<string>();

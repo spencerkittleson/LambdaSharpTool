@@ -1,10 +1,7 @@
 /*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,12 +23,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Amazon;
 using Amazon.APIGateway;
-using Amazon.APIGateway.Model;
 using Amazon.CloudFormation;
-using Amazon.CloudFormation.Model;
 using Amazon.IdentityManagement;
-using Amazon.IdentityManagement.Model;
 using Amazon.KeyManagementService;
+using Amazon.Lambda;
 using Amazon.Runtime;
 using Amazon.S3;
 using Amazon.SecurityToken;
@@ -70,7 +65,12 @@ namespace LambdaSharp.Tool.Cli {
         }
 
         //--- Methods ---
-        protected async Task<AwsAccountInfo> InitializeAwsProfile(string awsProfile, string awsAccountId = null, string awsRegion = null, string awsUserArn = null) {
+        protected async Task<AwsAccountInfo> InitializeAwsProfile(
+            string awsProfile,
+            string awsAccountId = null,
+            string awsRegion = null,
+            string awsUserArn = null
+        ) {
 
             // initialize AWS profile
             if(awsProfile != null) {
@@ -109,17 +109,12 @@ namespace LambdaSharp.Tool.Cli {
 
         protected Func<Task<Settings>> CreateSettingsInitializer(
             CommandLineApplication cmd,
-            bool requireAwsProfile = true,
-            bool requireDeploymentTier = true
+            bool requireAwsProfile = true
         ) {
-            CommandOption tierOption = null;
             CommandOption awsProfileOption = null;
 
             // add misc options
-            if(requireDeploymentTier) {
-                tierOption = AddTierOption(cmd);
-            }
-            var toolProfileOption = cmd.Option("--cli-profile|-C <NAME>", "(optional) Use a specific LambdaSharp CLI profile (default: Default)", CommandOptionType.SingleValue);
+            var tierOption = AddTierOption(cmd);
             if(requireAwsProfile) {
                 awsProfileOption = cmd.Option("--aws-profile|-P <NAME>", "(optional) Use a specific AWS profile from the AWS credentials file", CommandOptionType.SingleValue);
             }
@@ -132,16 +127,13 @@ namespace LambdaSharp.Tool.Cli {
             var awsUserArnOption = cmd.Option("--aws-user-arn <ARN>", "(test only) Override AWS user ARN (default: read from AWS profile)", CommandOptionType.SingleValue);
             var toolVersionOption = cmd.Option("--cli-version <VALUE>", "(test only) LambdaSharp CLI version for profile", CommandOptionType.SingleValue);
             var deploymentBucketNameOption = cmd.Option("--deployment-bucket-name <NAME>", "(test only) S3 Bucket name used to deploy modules (default: read from LambdaSharp CLI configuration)", CommandOptionType.SingleValue);
-            var deploymentNotificationTopicOption = cmd.Option("--deployment-notifications-topic <ARN>", "(test only) SNS Topic for CloudFormation deployment notifications (default: read from LambdaSharp CLI configuration)", CommandOptionType.SingleValue);
-            var moduleBucketNamesOption = cmd.Option("--module-bucket-names <NAMES>", "(test only) Comma-separated list of S3 Bucket names used to find modules (default: read from LambdaSharp CLI configuration)", CommandOptionType.SingleValue);
             var tierVersionOption = cmd.Option("--tier-version <VERSION>", "(test only) LambdaSharp tier version (default: read from deployment tier)", CommandOptionType.SingleValue);
-            awsAccountIdOption.ShowInHelpText = false;
+            var promptsAsErrorsOption = cmd.Option("--prompts-as-errors", "(optional) Missing parameters cause an error instead of a prompts (use for CI/CD to avoid unattended prompts)", CommandOptionType.NoValue);
             awsRegionOption.ShowInHelpText = false;
+            awsAccountIdOption.ShowInHelpText = false;
             awsUserArnOption.ShowInHelpText = false;
             toolVersionOption.ShowInHelpText = false;
             deploymentBucketNameOption.ShowInHelpText = false;
-            deploymentNotificationTopicOption.ShowInHelpText = false;
-            moduleBucketNamesOption.ShowInHelpText = false;
             tierVersionOption.ShowInHelpText = false;
             return async () => {
 
@@ -157,29 +149,19 @@ namespace LambdaSharp.Tool.Cli {
                     return null;
                 }
 
-                // initialize CLI profile
-                var toolProfile = toolProfileOption.Value() ?? Environment.GetEnvironmentVariable("LAMBDASHARP_PROFILE") ?? "Default";
-
                 // initialize deployment tier
-                string tier = null;
-                if(requireDeploymentTier) {
-                    tier = tierOption.Value() ?? Environment.GetEnvironmentVariable("LAMBDASHARP_TIER");
-                    if(string.IsNullOrEmpty(tier)) {
-                        LogError("missing deployment tier name");
-                    } else if(tier == "Default") {
-                        LogError("deployment tier cannot be 'Default' because it is a reserved name");
-                    }
-                }
+                string tier = tierOption.Value() ?? Environment.GetEnvironmentVariable("LAMBDASHARP_TIER") ?? "";
 
                 // initialize AWS profile
                 try {
                     AwsAccountInfo awsAccount = null;
                     IAmazonSimpleSystemsManagement ssmClient = null;
-                    IAmazonCloudFormation cfClient = null;
+                    IAmazonCloudFormation cfnClient = null;
                     IAmazonKeyManagementService kmsClient = null;
                     IAmazonS3 s3Client = null;
                     IAmazonAPIGateway apiGatewayClient = null;
                     IAmazonIdentityManagementService iamClient = null;
+                    IAmazonLambda lambdaClient = null;
                     if(requireAwsProfile) {
                         awsAccount = await InitializeAwsProfile(
                             awsProfileOption.Value(),
@@ -190,11 +172,12 @@ namespace LambdaSharp.Tool.Cli {
 
                         // create AWS clients
                         ssmClient = new AmazonSimpleSystemsManagementClient();
-                        cfClient = new AmazonCloudFormationClient();
+                        cfnClient = new AmazonCloudFormationClient();
                         kmsClient = new AmazonKeyManagementServiceClient();
                         s3Client = new AmazonS3Client();
                         apiGatewayClient = new AmazonAPIGatewayClient();
                         iamClient = new AmazonIdentityManagementServiceClient();
+                        lambdaClient = new AmazonLambdaClient();
                     }
                     if(HasErrors) {
                         return null;
@@ -203,28 +186,24 @@ namespace LambdaSharp.Tool.Cli {
                     // initialize LambdaSharp deployment values
                     var tierVersion = tierVersionOption.Value();
                     var deploymentBucketName = deploymentBucketNameOption.Value();
-                    var deploymentNotificationTopic = deploymentNotificationTopicOption.Value();
-                    var moduleBucketNames = moduleBucketNamesOption.Value()?.Split(',');
 
                     // create a settings instance for each module filename
                     return new Settings {
                         ToolVersion = Version,
-                        ToolProfile = toolProfile,
-                        ToolProfileExplicitlyProvided = toolProfileOption.HasValue(),
                         TierVersion = (tierVersion != null) ? VersionInfo.Parse(tierVersion) : null,
                         Tier = tier,
                         AwsRegion = awsAccount?.Region,
                         AwsAccountId = awsAccount?.AccountId,
                         AwsUserArn = awsAccount?.UserArn,
                         DeploymentBucketName = deploymentBucketName,
-                        DeploymentNotificationsTopic = deploymentNotificationTopic,
-                        ModuleBucketNames = moduleBucketNames,
                         SsmClient = ssmClient,
-                        CfnClient = cfClient,
+                        CfnClient = cfnClient,
                         KmsClient = kmsClient,
                         S3Client = s3Client,
                         ApiGatewayClient = apiGatewayClient,
-                        IamClient = iamClient
+                        IamClient = iamClient,
+                        LambdaClient = lambdaClient,
+                        PromptsAsErrors = promptsAsErrorsOption.HasValue()
                     };
                 } catch(AmazonClientException e) when(e.Message == "No RegionEndpoint or ServiceURL configured") {
                     LogError("AWS profile configuration is missing a region specifier");
@@ -260,84 +239,82 @@ namespace LambdaSharp.Tool.Cli {
             return false;
         }
 
-        protected async Task PopulateToolSettingsAsync(Settings settings, bool optional = false) {
+        protected async Task<bool> PopulateRuntimeSettingsAsync(Settings settings, bool optional = false) {
             if(
                 (settings.DeploymentBucketName == null)
-                || (settings.DeploymentNotificationsTopic == null)
-                || (settings.ModuleBucketNames == null)
+                || (settings.TierVersion == null)
             ) {
 
-                // import LambdaSharp CLI settings
-                if(settings.ToolProfile != null) {
-                    var lambdaSharpToolPath = $"/LambdaSharpTool/{settings.ToolProfile}/";
-                    var lambdaSharpToolSettings = await settings.SsmClient.GetAllParametersByPathAsync(lambdaSharpToolPath);
-                    var lambdaSharpToolVersionText = GetLambdaSharpToolSetting("Version");
-                    if((lambdaSharpToolVersionText == null) && optional) {
-                        return;
+                // attempt to find an existing core module
+                var stackName = $"{settings.TierPrefix}LambdaSharp-Core";
+                var existing = await settings.CfnClient.GetStackAsync(stackName, LogError);
+                if(!existing.Success) {
+                    if(!optional) {
+                        LogError($"LambdaSharp tier {settings.TierName} does not exist", new LambdaSharpDeploymentTierSetupException(settings.TierName));
                     }
-                    if(!VersionInfo.TryParse(lambdaSharpToolVersionText, out var lambdaSharpToolVersion)) {
-                        LogError("LambdaSharp CLI is not configured propertly", new LambdaSharpToolConfigException(settings.ToolProfile));
-                        return;
-                    }
-                    if((settings.ToolVersion > lambdaSharpToolVersion) && !settings.ToolVersion.IsCompatibleWith(lambdaSharpToolVersion) && !optional) {
-                        LogError($"LambdaSharp CLI configuration is not up-to-date (current: {settings.ToolVersion}, existing: {lambdaSharpToolVersion})", new LambdaSharpToolConfigException(settings.ToolProfile));
-                        return;
-                    }
-                    settings.DeploymentBucketName = settings.DeploymentBucketName ?? GetLambdaSharpToolSetting("DeploymentBucketName");
-                    settings.DeploymentNotificationsTopic = settings.DeploymentNotificationsTopic ?? GetLambdaSharpToolSetting("DeploymentNotificationTopic");
-                    if(settings.ModuleBucketNames == null) {
-                        var searchBucketNames = GetLambdaSharpToolSetting("ModuleBucketNames");
-                        if(searchBucketNames != null) {
-                            settings.ModuleBucketNames = searchBucketNames
-                                .Split(new[] { ',', ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                                .Select(name => name.Replace("${AWS::Region}", settings.AwsRegion))
-                                .ToArray();
-                        }
-                    }
+                    return false;
+                }
 
-                    // local functions
-                    string GetLambdaSharpToolSetting(string name) {
-                        lambdaSharpToolSettings.TryGetValue(lambdaSharpToolPath + name, out var kv);
-                        return kv.Value;
+                // validate module information
+                var tierModuleInfoText = existing.Stack?.GetModuleVersionText();
+                if(tierModuleInfoText == null) {
+                    if(!optional) {
+                        LogError($"Could not find LambdaSharp tier information for {stackName}");
+                    }
+                    return false;
+                }
+                if(
+                    !ModuleInfo.TryParse(tierModuleInfoText, out var tierModuleInfo)
+                    || (tierModuleInfo.Namespace != "LambdaSharp")
+                    || (tierModuleInfo.Name != "Core")
+                ) {
+                    LogError("LambdaSharp tier is not configured propertly", new LambdaSharpDeploymentTierSetupException(settings.TierName));
+                    return false;
+                }
+                settings.TierVersion = tierModuleInfo.Version;
+
+                // check if tier and tool versions are compatible
+                if(!optional) {
+                    var tierToToolVersionComparison = tierModuleInfo.Version.CompareToVersion(settings.ToolVersion);
+                    if(tierToToolVersionComparison == 0) {
+
+                        // versions are identical; nothing to do
+                    } else if(tierToToolVersionComparison < 0) {
+                        LogError($"LambdaSharp tier is not up to date (tool: {settings.ToolVersion}, tier: {tierModuleInfo.Version})", new LambdaSharpDeploymentTierOutOfDateException(settings.TierName));
+                        return false;
+                    } else if(tierToToolVersionComparison > 0) {
+
+                        // tier is newer; we expect the tier to be backwards compatible by exposing the same resources as before
+                    } else {
+                        LogError($"LambdaSharp tool is not compatible (tool: {settings.ToolVersion}, tier: {tierModuleInfo.Version})", new LambdaSharpToolOutOfDateException(tierModuleInfo.Version));
+                        return false;
                     }
                 }
-            }
-        }
 
-        protected async Task PopulateRuntimeSettingsAsync(Settings settings) {
-            if((settings.TierVersion == null) && (settings.Tier != null)) {
-                try {
-
-                    // check version of base LambadSharp module
-                    var describe = await settings.CfnClient.DescribeStacksAsync(new DescribeStacksRequest {
-                        StackName = $"{settings.Tier}-LambdaSharp-Core"
-                    });
-                    var deployedOutputs = describe.Stacks.FirstOrDefault()?.Outputs;
-                    if(deployedOutputs != null) {
-
-                        // read core module version
-                        var deployedModule = deployedOutputs.FirstOrDefault(output => output.OutputKey == "Module")?.OutputValue;
-                        if(
-                            deployedModule.TryParseModuleDescriptor(
-                                out string deployedOwner,
-                                out string deployedName,
-                                out VersionInfo deployedVersion,
-                                out string deployedBucketName
-                            )
-                            && (deployedOwner == "LambdaSharp")
-                            && (deployedName == "Core")
-                        ) {
-                            settings.TierVersion = deployedVersion;
-                        }
-
-                        // read core module default secret key
-                        settings.TierDefaultSecretKey = deployedOutputs.FirstOrDefault(output => output.OutputKey == "DefaultSecretKey")?.OutputValue;
-                    }
-                } catch(AmazonCloudFormationException) {
-
-                    // stack doesn't exist
+                // read deployment S3 bucket name
+                var tierModuleBucketArnParts = GetStackOutput("DeploymentBucket")?.Split(':');
+                if(tierModuleBucketArnParts == null) {
+                    LogError("could not find 'DeploymentBucket' output value for deployment tier settings", new LambdaSharpDeploymentTierOutOfDateException(settings.TierName));
+                    return false;
                 }
+                if((tierModuleBucketArnParts.Length != 6) || (tierModuleBucketArnParts[0] != "arn") || (tierModuleBucketArnParts[1] != "aws") || (tierModuleBucketArnParts[2] != "s3")) {
+                    LogError("invalid value 'DeploymentBucket' output value for deployment tier settings", new LambdaSharpDeploymentTierOutOfDateException(settings.TierName));
+                    return false;
+                }
+                settings.DeploymentBucketName = tierModuleBucketArnParts[5];
+
+                // read tier mode
+                var coreServicesModeText = GetStackOutput("CoreServices");
+                if(!Enum.TryParse<CoreServices>(coreServicesModeText, true, out var coreServicesMode)) {
+                    LogError("unable to parse CoreServices output value from stack");
+                    return false;
+                }
+                settings.CoreServices = coreServicesMode;
+
+                // local functions
+                string GetStackOutput(string key) => existing.Stack?.Outputs.FirstOrDefault(output => output.OutputKey == key)?.OutputValue;
             }
+            return true;
         }
 
         protected string GetGitShaValue(string workingDirectory, bool showWarningOnFailure = true) {

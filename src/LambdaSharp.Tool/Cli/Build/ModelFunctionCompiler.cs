@@ -1,10 +1,7 @@
 ﻿/*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1007,7 +1004,7 @@ namespace LambdaSharp.Tool.Cli.Build {
                     _restApiRoutes.Add((Function: function, Source: apiGatewaySource));
                     break;
                 case S3Source s3Source:
-                    _builder.AddDependency("LambdaSharp.S3.Subscriber", Settings.ToolVersion.GetCompatibleBaseVersion(), maxVersion: null, bucketName: null);
+                    _builder.AddDependencyAsync(new ModuleInfo("LambdaSharp", "S3.Subscriber", Settings.ToolVersion.GetCompatibleCoreServicesVersion(), "lambdasharp"), ModuleManifestDependencyType.Shared).Wait();
                     Enumerate(s3Source.Bucket, (suffix, arn) => {
                         var permission = _builder.AddResource(
                             parent: function,

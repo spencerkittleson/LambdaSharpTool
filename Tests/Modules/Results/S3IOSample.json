@@ -46,7 +46,7 @@
     "DeploymentChecksum": {
       "Type": "String",
       "Description": "Deployment Checksum",
-      "Default": "F9697DD9FC89977F863189C4F780F31C"
+      "Default": "C65FE6B147AAA091E9EF79B61DC7813A"
     }
   },
   "Resources": {
@@ -132,7 +132,7 @@
         "SourceBucket": {
           "Ref": "DeploymentBucketName"
         },
-        "SourceKey": "LambdaSharp/Modules/Sample.S3.IO/Assets/WebsiteContents-DRYRUN.zip",
+        "SourceKey": "<%MODULE_ORIGIN%>/LambdaSharp/Sample.S3.IO/.assets/WebsiteContents-DRYRUN.zip",
         "DestinationBucket": {
           "Ref": "WebsiteBucket"
         },
@@ -157,12 +157,6 @@
     }
   },
   "Outputs": {
-    "Module": {
-      "Value": "LambdaSharp.Sample.S3.IO:1.0-DEV"
-    },
-    "LambdaSharpTool": {
-      "Value": "0.6.0.3"
-    },
     "WebsiteUrl": {
       "Value": {
         "Fn::GetAtt": [
@@ -176,6 +170,40 @@
         }
       },
       "Description": "Website URL"
+    },
+    "Module": {
+      "Value": "LambdaSharp.Sample.S3.IO:1.0-DEV@<%MODULE_ORIGIN%>"
+    },
+    "ModuleChecksum": {
+      "Value": "C65FE6B147AAA091E9EF79B61DC7813A"
+    },
+    "LambdaSharpTool": {
+      "Value": "0.7.0"
+    },
+    "LambdaSharpTier": {
+      "Value": {
+        "Fn::Select": [
+          "0",
+          {
+            "Fn::Split": [
+              "-",
+              {
+                "Ref": "DeploymentPrefix"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "Conditions": {
+    "UseCoreServices": {
+      "Fn::Equals": [
+        {
+          "Ref": "LambdaSharpCoreServices"
+        },
+        "Enabled"
+      ]
     }
   },
   "Conditions": {
@@ -253,8 +281,12 @@
       ]
     },
     "LambdaSharp::Manifest": {
-      "Version": "2018-12-31",
+      "Version": "2019-07-04",
       "Module": "LambdaSharp.Sample.S3.IO:1.0-DEV",
+      "Description": "Showcase how to write files to an S3 bucket",
+      "TemplateChecksum": "C65FE6B147AAA091E9EF79B61DC7813A",
+      "Date": "2019-08-09T15:00:00Z",
+      "CoreServicesVersion": "0.7.0",
       "ParameterSections": [
         {
           "Title": "Website Settings",
@@ -286,34 +318,41 @@
               "Name": "LambdaSharpCoreServices",
               "Type": "String",
               "Label": "Integrate with LambdaSharp.Core services",
-              "Default": "Disabled"
+              "Default": "Disabled",
+              "AllowedValues": [
+                "Disabled",
+                "Enabled"
+              ]
             }
           ]
         }
       ],
-      "RuntimeCheck": true,
-      "Hash": "F9697DD9FC89977F863189C4F780F31C",
       "Git": {
         "Branch": "test-branch",
         "SHA": "0123456789ABCDEF0123456789ABCDEF01234567"
       },
+      "Assets": [],
       "Dependencies": [
         {
-          "ModuleFullName": "LambdaSharp.Core",
-          "MinVersion": "0.6"
+          "ModuleInfo": "LambdaSharp.Core:0.7.0@lambdasharp",
+          "Type": "Shared"
         },
         {
-          "ModuleFullName": "LambdaSharp.S3.IO",
-          "MinVersion": "0.5"
+          "ModuleInfo": "LambdaSharp.S3.IO@lambdasharp",
+          "Type": "Shared"
         }
       ],
+      "ResourceTypes": [],
       "Outputs": [
         {
           "Name": "WebsiteUrl",
           "Description": "Website URL",
           "Type": "String"
         }
-      ],
+      ]
+    },
+    "LambdaSharp::NameMappings": {
+      "Version": "2019-07-04",
       "ResourceNameMappings": {
         "ModuleRegistration": "Module::Registration"
       },

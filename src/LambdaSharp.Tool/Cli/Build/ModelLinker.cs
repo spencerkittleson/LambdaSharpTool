@@ -1,10 +1,7 @@
 ﻿/*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,9 +102,6 @@ namespace LambdaSharp.Tool.Cli.Build {
                         environment["LAMBDA_RUNTIME"] = function.Function.Runtime;
                         if(function.HasDeadLetterQueue && _builder.TryGetItem("Module::DeadLetterQueue", out var _))  {
                             environment["DEADLETTERQUEUE"] = FnRef("Module::DeadLetterQueue");
-                        }
-                        if(_builder.TryGetItem("Module::DefaultSecretKey", out var _)) {
-                            environment["DEFAULTSECRETKEY"] = FnRef("Module::DefaultSecretKey");
                         }
 
                         // add all items scoped to this function

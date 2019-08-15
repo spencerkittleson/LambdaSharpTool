@@ -1,10 +1,7 @@
 /*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,16 +16,22 @@
  * limitations under the License.
  */
 
+using System;
+using System.Text;
+using Amazon.CloudFormation.Model;
 
-namespace LambdaSharp.Tool.Model {
+namespace LambdaSharp.Tool.Cli.Tier {
 
-    public class ModuleDependency {
+    internal class TierModuleDetails {
 
         //--- Properties ---
-        public string ModuleFullName { get; set; }
-        public VersionInfo MinVersion { get; set; }
-        public VersionInfo MaxVersion { get; set; }
-        public string BucketName { get; set; }
-        public ModuleManifest Manifest { get; set; }
+        public string StackName { get; set; }
+        public string ModuleDeploymentName { get; set; }
+        public string StackStatus { get; set; }
+        public DateTime DeploymentDate { get; set; }
+        public Stack Stack { get; set; }
+        public string ModuleReference { get; set; }
+        public string CoreServices { get; set; }
+        public bool IsRoot { get; set; }
     }
 }

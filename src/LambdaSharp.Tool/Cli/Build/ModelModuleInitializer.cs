@@ -1,10 +1,7 @@
 ﻿/*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,11 +73,11 @@ namespace LambdaSharp.Tool.Cli.Build {
             );
             _builder.AddVariable(
                 parent: moduleItem,
-                name: "Owner",
-                description: "Module Owner",
+                name: "Namespace",
+                description: "Module Namespace",
                 type: "String",
                 scope: null,
-                value: _builder.Owner,
+                value: _builder.Namespace,
                 allow: null,
                 encryptionContext: null
             );
@@ -331,20 +328,6 @@ namespace LambdaSharp.Tool.Cli.Build {
                     module: "LambdaSharp.Core",
                     encryptionContext: null
                 );
-                _builder.AddImport(
-                    parent: lambdasharp,
-                    name: "DefaultSecretKey",
-                    description: null,
-
-                    // TODO (2018-12-01, bjorg): consider using 'AWS::KMS::Key'
-                    type: "String",
-                    scope: null,
-
-                    // NOTE (2018-12-11, bjorg): we grant decryption access later as part of a bulk permissioning operation
-                    allow: null,
-                    module: "LambdaSharp.Core",
-                    encryptionContext: null
-                );
             }
 
             // add module variables
@@ -391,29 +374,6 @@ namespace LambdaSharp.Tool.Cli.Build {
                     value: loggingStreamRoleVariable,
                     allow: null,
                     encryptionContext: null
-                );
-            }
-            var hasDefaultSecretKey = TryGetModuleVariable("DefaultSecretKey", out var defaultSecretKeyVariable, out var defaultSecretKeyCondition);
-            if(hasDefaultSecretKey) {
-                _builder.AddVariable(
-                    parent: moduleItem,
-                    name: "DefaultSecretKey",
-                    description: "Module Default Secret Key (ARN)",
-                    type: "String",
-                    scope: null,
-                    value: defaultSecretKeyVariable,
-                    allow: null,
-                    encryptionContext: null
-                );
-                _builder.AddGrant(
-                    name: "DefaultSecretKey",
-                    awsType: null,
-                    reference: FnRef("Module::DefaultSecretKey"),
-                    allow: new[] {
-                        "kms:Decrypt",
-                        "kms:Encrypt"
-                    },
-                    condition: defaultSecretKeyCondition
                 );
             }
 
@@ -600,6 +560,17 @@ namespace LambdaSharp.Tool.Cli.Build {
                 condition: null
             );
 
+            // permissions needed for reading state of CloudFormation stack (used by Finalizer to confirm a delete operation is happening)
+            _builder.AddGrant(
+                name: "CloudFormation",
+                awsType: null,
+                reference: FnRef("AWS::StackId"),
+                allow: new[] {
+                    "cloudformation:DescribeStacks"
+                },
+                condition: null
+            );
+
             // permissions needed for X-Ray lambda daemon to upload tracing information
             _builder.AddGrant(
                 name: "AWSXRay",
@@ -644,7 +615,7 @@ namespace LambdaSharp.Tool.Cli.Build {
 
             // add module registration
             if(_builder.HasModuleRegistration) {
-                _builder.AddDependency("LambdaSharp.Core", Settings.ToolVersion.GetCompatibleBaseVersion(), maxVersion: null, bucketName: null);
+                _builder.AddDependencyAsync(new ModuleInfo("LambdaSharp", "Core", Settings.ToolVersion.GetCompatibleCoreServicesVersion(), "lambdasharp"), ModuleManifestDependencyType.Shared).Wait();
 
                 // create module registration
                 _builder.AddResource(

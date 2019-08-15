@@ -36,7 +36,7 @@
     "DeploymentChecksum": {
       "Type": "String",
       "Description": "Deployment Checksum",
-      "Default": "AF1D24890A0033B9C6B7CC46C40F94E8"
+      "Default": "536220D13F9E503DC2BE329A8900FFA9"
     }
   },
   "Resources": {
@@ -62,12 +62,6 @@
     }
   },
   "Outputs": {
-    "Module": {
-      "Value": "Test.TestModule:1.0-DEV"
-    },
-    "LambdaSharpTool": {
-      "Value": "0.6.0.3"
-    },
     "ResourceValue": {
       "Value": {
         "Ref": "ResourceValue"
@@ -78,6 +72,40 @@
         }
       },
       "Description": "ResourceValue description"
+    },
+    "Module": {
+      "Value": "Test.TestModule:1.0-DEV@<%MODULE_ORIGIN%>"
+    },
+    "ModuleChecksum": {
+      "Value": "536220D13F9E503DC2BE329A8900FFA9"
+    },
+    "LambdaSharpTool": {
+      "Value": "0.7.0"
+    },
+    "LambdaSharpTier": {
+      "Value": {
+        "Fn::Select": [
+          "0",
+          {
+            "Fn::Split": [
+              "-",
+              {
+                "Ref": "DeploymentPrefix"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "Conditions": {
+    "UseCoreServices": {
+      "Fn::Equals": [
+        {
+          "Ref": "LambdaSharpCoreServices"
+        },
+        "Enabled"
+      ]
     }
   },
   "Conditions": {
@@ -140,8 +168,12 @@
       ]
     },
     "LambdaSharp::Manifest": {
-      "Version": "2018-12-31",
+      "Version": "2019-07-04",
       "Module": "Test.TestModule:1.0-DEV",
+      "Description": "LambdaSharp CloudFormation Test",
+      "TemplateChecksum": "536220D13F9E503DC2BE329A8900FFA9",
+      "Date": "2019-08-09T15:00:00Z",
+      "CoreServicesVersion": "0.7.0",
       "ParameterSections": [
         {
           "Title": "LambdaSharp Module Options",
@@ -156,30 +188,37 @@
               "Name": "LambdaSharpCoreServices",
               "Type": "String",
               "Label": "Integrate with LambdaSharp.Core services",
-              "Default": "Disabled"
+              "Default": "Disabled",
+              "AllowedValues": [
+                "Disabled",
+                "Enabled"
+              ]
             }
           ]
         }
       ],
-      "RuntimeCheck": true,
-      "Hash": "AF1D24890A0033B9C6B7CC46C40F94E8",
       "Git": {
         "Branch": "test-branch",
         "SHA": "0123456789ABCDEF0123456789ABCDEF01234567"
       },
+      "Assets": [],
       "Dependencies": [
         {
-          "ModuleFullName": "LambdaSharp.Core",
-          "MinVersion": "0.6"
+          "ModuleInfo": "LambdaSharp.Core:0.7.0@lambdasharp",
+          "Type": "Shared"
         }
       ],
+      "ResourceTypes": [],
       "Outputs": [
         {
           "Name": "ResourceValue",
           "Description": "ResourceValue description",
           "Type": "AWS::SNS::Topic"
         }
-      ],
+      ]
+    },
+    "LambdaSharp::NameMappings": {
+      "Version": "2019-07-04",
       "ResourceNameMappings": {
         "ModuleRegistration": "Module::Registration"
       },

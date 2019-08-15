@@ -1,10 +1,7 @@
 /*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,20 +21,26 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using LambdaSharp.Tool.Internal;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace LambdaSharp.Tool.Model {
-    using System.Reflection;
     using static ModelFunctions;
+
+    public class ModuleBuilderDependency {
+
+        //--- Properties ---
+        public ModuleManifest Manifest { get; set; }
+        public ModuleLocation ModuleLocation { get; set; }
+        public ModuleManifestDependencyType Type;
+    }
 
     public class ModuleBuilder : AModelProcessor {
 
         //--- Fields ---
-        public string _owner;
+        private string _namespace;
         private string _name;
         private string _description;
         private IList<object> _pragmas;
@@ -46,14 +49,14 @@ namespace LambdaSharp.Tool.Model {
         private List<AModuleItem> _items;
         private IList<Humidifier.Statement> _resourceStatements = new List<Humidifier.Statement>();
         private IList<string> _assets;
-        private IDictionary<string, ModuleDependency> _dependencies;
+        private IDictionary<string, ModuleBuilderDependency> _dependencies;
         private IList<ModuleManifestResourceType> _customResourceTypes;
         private IList<string> _macroNames;
         private IDictionary<string, string> _resourceTypeNameMappings;
 
         //--- Constructors ---
         public ModuleBuilder(Settings settings, string sourceFilename, Module module) : base(settings, sourceFilename) {
-            _owner = module.Owner;
+            _namespace = module.Namespace;
             _name = module.Name;
             Version = module.Version;
             _description = module.Description;
@@ -63,8 +66,8 @@ namespace LambdaSharp.Tool.Model {
             _itemsByFullName = _items.ToDictionary(item => item.FullName);
             _assets = new List<string>(module.Assets ?? new string[0]);
             _dependencies = (module.Dependencies != null)
-                ? new Dictionary<string, ModuleDependency>(module.Dependencies)
-                : new Dictionary<string, ModuleDependency>();
+                ? new Dictionary<string, ModuleBuilderDependency>(module.Dependencies)
+                : new Dictionary<string, ModuleBuilderDependency>();
             _customResourceTypes = (module.CustomResourceTypes != null)
                 ? new List<ModuleManifestResourceType>(module.CustomResourceTypes)
                 : new List<ModuleManifestResourceType>();
@@ -82,11 +85,11 @@ namespace LambdaSharp.Tool.Model {
         }
 
         //--- Properties ---
-        public string Owner => _owner;
+        public string Namespace => _namespace;
         public string Name => _name;
-        public string FullName => $"{_owner}.{_name}";
-
+        public string FullName => $"{_namespace}.{_name}";
         public string Info => $"{FullName}:{Version}";
+        public ModuleInfo ModuleInfo => new ModuleInfo(_namespace, _name, Version, origin: null);
         public VersionInfo Version { get; set; }
         public IEnumerable<object> Secrets => _secrets;
         public IEnumerable<AModuleItem> Items => _items;
@@ -168,69 +171,70 @@ namespace LambdaSharp.Tool.Model {
             GetItem(fullName).Reference = Path.GetFileName(asset);
         }
 
-        public void AddDependency(string moduleFullName, VersionInfo minVersion, VersionInfo maxVersion, string bucketName) {
+        public async Task<ModuleBuilderDependency> AddDependencyAsync(ModuleInfo moduleInfo, ModuleManifestDependencyType dependencyType) {
+            string moduleKey;
+            switch(dependencyType) {
+            case ModuleManifestDependencyType.Nested:
 
-            // check if a dependency was already registered
-            ModuleDependency dependency;
-            if(_dependencies.TryGetValue(moduleFullName, out dependency)) {
+                // nested dependencies can reference different versions
+                moduleKey = moduleInfo.ToString();
+                if(_dependencies.ContainsKey(moduleKey)) {
+                    return null;
+                }
+                break;
+            case ModuleManifestDependencyType.Shared:
 
-                // keep the strongest version constraints
-                if(minVersion != null) {
-                    if((dependency.MinVersion == null) || (dependency.MinVersion < minVersion)) {
-                        dependency.MinVersion = minVersion;
+                // shared dependencies can only have one version
+                moduleKey = moduleInfo.WithoutVersion().ToString();
+
+                // check if a dependency was already registered
+                if(_dependencies.TryGetValue(moduleKey, out var existingDependency)) {
+                    if(
+                        (moduleInfo.Version == null)
+                        || (
+                            (existingDependency.ModuleLocation.ModuleInfo.Version != null)
+                            && existingDependency.ModuleLocation.ModuleInfo.Version.IsGreaterOrEqualThanVersion(moduleInfo.Version)
+                        )
+                    ) {
+
+                        // keep existing shared dependency
+                        return null;
                     }
                 }
-                if(maxVersion != null) {
-                    if((dependency.MaxVersion == null) || (dependency.MaxVersion > maxVersion)) {
-                        dependency.MaxVersion = maxVersion;
-                    }
-                }
-
-                // check there is no conflict in origin bucket names
-                if(bucketName != null) {
-                    if(dependency.BucketName == null) {
-                        dependency.BucketName = bucketName;
-                    } else if(dependency.BucketName != bucketName) {
-                        LogError($"module {moduleFullName} source bucket conflict is empty ({dependency.BucketName} vs. {bucketName})");
-                    }
-                }
-            } else {
-                dependency = new ModuleDependency {
-                    ModuleFullName = moduleFullName,
-                    MinVersion = minVersion,
-                    MaxVersion = maxVersion,
-                    BucketName = bucketName
-                };
+                break;
+            default:
+                LogError($"unsupported depency type '{dependencyType}' for {moduleInfo.ToString()}");
+                return null;
             }
 
             // validate dependency
-            if((dependency.MinVersion != null) && (dependency.MaxVersion != null) && (dependency.MinVersion > dependency.MaxVersion)) {
-                LogError($"module {moduleFullName} version range is empty (v{dependency.MinVersion}..v{dependency.MaxVersion})");
-                return;
-            }
+            var loader = new ModelManifestLoader(Settings, SourceFilename);
+            ModuleBuilderDependency dependency;
             if(!Settings.NoDependencyValidation) {
-                if(!moduleFullName.TryParseModuleOwnerName(out string moduleOwner, out var moduleName)) {
-                    LogError("invalid module reference");
-                    return;
-                }
-                var loader = new ModelManifestLoader(Settings, moduleFullName);
-                var location = loader.LocateAsync(moduleOwner, moduleName, minVersion, maxVersion, bucketName).Result;
-                if(location == null) {
-                    return;
-                }
-                var manifest = new ModelManifestLoader(Settings, moduleFullName).LoadFromS3Async(location.ModuleBucketName, location.TemplatePath).Result;
-                if(manifest == null) {
+                dependency = new ModuleBuilderDependency {
+                    Type = dependencyType,
+                    ModuleLocation = await loader.ResolveInfoToLocationAsync(moduleInfo, dependencyType, allowImport: true)
+                };
+                if(dependency.ModuleLocation == null) {
 
                     // nothing to do; loader already emitted an error
-                    return;
+                    return null;
                 }
+                dependency.Manifest = await loader.LoadManifestFromLocationAsync(dependency.ModuleLocation);
+                if(dependency.Manifest == null) {
 
-                // update manifest in dependency
-                dependency.Manifest = manifest;
+                    // nothing to do; loader already emitted an error
+                    return null;
+                }
+            } else {
+                LogWarn("unable to validate dependency");
+                dependency = new ModuleBuilderDependency {
+                    Type = dependencyType,
+                    ModuleLocation = new ModuleLocation(Settings.DeploymentBucketName, moduleInfo, "00000000000000000000000000000000")
+                };
             }
-            if(!_dependencies.ContainsKey(moduleFullName)) {
-                _dependencies.Add(moduleFullName, dependency);
-            }
+            _dependencies[moduleKey] = dependency;
+            return dependency;
         }
 
         public bool AddSecret(object secret) {
@@ -325,7 +329,7 @@ namespace LambdaSharp.Tool.Model {
             } else if(!result.HasAwsType) {
 
                 // nothing to do
-            } else if(defaultValue == null) {
+            } else if(properties == null) {
 
                 // request input parameter resource grants
                 AddGrant(result.LogicalId, type, result.Reference, allow, condition: null);
@@ -385,16 +389,16 @@ namespace LambdaSharp.Tool.Model {
             }
 
             // validate module name
-            if(!module.TryParseModuleDescriptor(out var moduleOwner, out var moduleName, out var moduleVersion, out var moduleBucketName)) {
+            if(!ModuleInfo.TryParse(module, out var moduleInfo)) {
                 LogError("invalid 'Module' attribute");
             } else {
-                module = $"{moduleOwner}.{moduleName}";
+                module = moduleInfo.FullName;
             }
-            if(moduleVersion != null) {
+            if(moduleInfo.Version != null) {
                 LogError("'Module' attribute cannot have a version");
             }
-            if(moduleBucketName != null) {
-                LogError("'Module' attribute cannot have a source bucket name");
+            if(moduleInfo.Origin != null) {
+                LogError("'Module' attribute cannot have an origin");
             }
 
             // create input parameter item
@@ -689,65 +693,60 @@ namespace LambdaSharp.Tool.Model {
             return result;
         }
 
-        public AModuleItem AddModule(
+        public AModuleItem AddNestedModule(
             AModuleItem parent,
             string name,
             string description,
-            string moduleOwner,
-            string moduleName,
-            VersionInfo moduleVersion,
-            string moduleBucketName,
+            ModuleInfo moduleInfo,
             IList<string> scope,
             object dependsOn,
             IDictionary<string, object> parameters
         ) {
-            var sourceBucketName = moduleBucketName ?? FnRef("DeploymentBucketName");
             var moduleParameters = (parameters != null)
                 ? new Dictionary<string, object>(parameters)
                 : new Dictionary<string, object>();
+            if(moduleInfo.Version == null) {
+                LogError("missing module version");
+            }
 
             // add nested module resource
+            var stack = new Humidifier.CloudFormation.Stack {
+                NotificationARNs = FnRef("AWS::NotificationARNs"),
+                Parameters = moduleParameters,
+                Tags = new List<Humidifier.Tag> {
+                    new Humidifier.Tag {
+                        Key = "LambdaSharp:Module",
+                        Value = moduleInfo.FullName
+                    }
+                },
+
+                // this value gets set once the template was successfully loaded for validation
+                TemplateURL = "<BAD>",
+
+                // TODO (2018-11-29, bjorg): make timeout configurable
+                TimeoutInMinutes = 15
+            };
             var resource = AddResource(
                 parent: parent,
                 name: name,
                 description: description,
                 scope: scope,
-                resource: new Humidifier.CloudFormation.Stack {
-                    NotificationARNs = FnRef("AWS::NotificationARNs"),
-                    Parameters = moduleParameters,
-                    Tags = new List<Humidifier.Tag> {
-                        new Humidifier.Tag {
-                            Key = "LambdaSharp:Module",
-                            Value = $"{moduleOwner}.{moduleName}"
-                        }
-                    },
-
-                    // TODO (2019-05-09, bjorg); path-style S3 bucket references will be deprecated in September 30th 2020
-                    //  see https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
-                    TemplateURL = FnSub("https://s3.amazonaws.com/${ModuleBucketName}/${ModuleOwner}/Modules/${ModuleName}/Versions/${ModuleVersion}/cloudformation.json", new Dictionary<string, object> {
-                        ["ModuleOwner"] = moduleOwner,
-                        ["ModuleName"] = moduleName,
-                        ["ModuleVersion"] = moduleVersion.ToString(),
-                        ["ModuleBucketName"] = sourceBucketName
-                    }),
-
-                    // TODO (2018-11-29, bjorg): make timeout configurable
-                    TimeoutInMinutes = 15
-                },
+                resource: stack,
                 resourceExportAttribute: null,
                 dependsOn: ConvertToStringList(dependsOn),
                 condition: null,
                 pragmas: null
             );
+            var dependency = AddDependencyAsync(moduleInfo, ModuleManifestDependencyType.Nested).Result;
 
             // validate module parameters
             AtLocation("Parameters", () => {
-                if(!Settings.NoDependencyValidation) {
-                    var moduleFullName = $"{moduleOwner}.{moduleName}";
-                    var loader = new ModelManifestLoader(Settings, moduleFullName);
-                    var location = loader.LocateAsync(moduleOwner, moduleName, moduleVersion, moduleVersion, moduleBucketName).Result;
-                    if(location != null) {
-                        var manifest = new ModelManifestLoader(Settings, moduleFullName).LoadFromS3Async(location.ModuleBucketName, location.TemplatePath).Result;
+                if(dependency?.Manifest != null) {
+                    if(!Settings.NoDependencyValidation) {
+                        var manifest = dependency.Manifest;
+
+                        // update stack resource source with hashed cloudformation key
+                        stack.TemplateURL = $"https://{ModuleInfo.MODULE_ORIGIN_PLACEHOLDER}.s3.amazonaws.com/{dependency.ModuleLocation.ModuleTemplateKey}";
 
                         // validate that all required parameters are supplied
                         var formalParameters = manifest.GetAllParameters().ToDictionary(p => p.Name);
@@ -761,8 +760,8 @@ namespace LambdaSharp.Tool.Model {
                         }
 
                         // inherit dependencies from nested module
-                        foreach(var dependency in manifest.Dependencies) {
-                            AddDependency(dependency.ModuleFullName, dependency.MinVersion, dependency.MaxVersion, dependency.BucketName);
+                        foreach(var manifestDependency in manifest.Dependencies) {
+                            AddDependencyAsync(manifestDependency.ModuleInfo, dependency.Type).Wait();
                         }
 
                         // inherit import parameters that are not provided by the declaration
@@ -788,15 +787,15 @@ namespace LambdaSharp.Tool.Model {
                             moduleParameters.Add("XRayTracing", FnIf("XRayNestedIsEnabled", XRayTracingLevel.AllModules.ToString(), XRayTracingLevel.Disabled.ToString()));
                         }
                     } else {
-
-                        // nothing to do; 'LocateAsync' already reported the error
+                        LogWarn("unable to validate nested module parameters");
                     }
                 } else {
-                    LogWarn("unable to validate nested module parameters");
+
+                    // nothing to do; loader already emitted an error
                 }
 
                 // add expected parameters
-                MandatoryAdd("DeploymentBucketName", sourceBucketName);
+                MandatoryAdd("DeploymentBucketName", FnRef("DeploymentBucketName"));
                 MandatoryAdd("DeploymentPrefix", FnRef("DeploymentPrefix"));
                 MandatoryAdd("DeploymentPrefixLowercase", FnRef("DeploymentPrefixLowercase"));
                 MandatoryAdd("DeploymentRoot", FnRef("Module::RootId"));
@@ -845,7 +844,7 @@ namespace LambdaSharp.Tool.Model {
             );
 
             // update the package variable to use the package-name variable
-            package.Reference = FnSub($"${{Module::Owner}}/Modules/${{Module::Name}}/Assets/${{{packageName.FullName}}}");
+            package.Reference = ModuleInfo.GetModuleAssetExpression($"${{{packageName.FullName}}}");
             return package;
         }
 
@@ -954,7 +953,7 @@ namespace LambdaSharp.Tool.Model {
                 allow: null,
                 encryptionContext: null
             );
-            function.Function.Code.S3Key = FnSub($"${{Module::Owner}}/Modules/${{Module::Name}}/Assets/${{{packageName.FullName}}}");
+            function.Function.Code.S3Key = ModuleInfo.GetModuleAssetExpression($"${{{packageName.FullName}}}");
 
             // check if function is a finalizer
             var isFinalizer = (parent == null) && (name == "Finalizer");
@@ -1203,7 +1202,7 @@ namespace LambdaSharp.Tool.Model {
                 role.Policies[0].PolicyDocument.Statement = _resourceStatements.ToList();
             }
             return new Module {
-                Owner = _owner,
+                Namespace = _namespace,
                 Name = _name,
                 Version = Version,
                 Description = _description,
@@ -1252,7 +1251,7 @@ namespace LambdaSharp.Tool.Model {
                         LogError($"unrecognized resource type {awsType}");
                     }
                 } else if(properties != null) {
-                    var definition = dependency.Manifest.ResourceTypes.FirstOrDefault(existing => existing.Type == awsType);
+                    var definition = dependency.Manifest?.ResourceTypes.FirstOrDefault(existing => existing.Type == awsType);
                     if(definition != null) {
                         foreach(var key in properties.Keys) {
                             var stringKey = (string)key;
