@@ -167,6 +167,7 @@ namespace LambdaSharp.Tool.Cli.Build {
                         AuthorizerId = source.AuthorizerId,
                         AuthorizationScopes =  source.AuthorizationScopes,
                         ApiKeyRequired = source.ApiKeyRequired,
+                        AuthorizationType = source.AuthorizationType,
                         Invoke = source.Invoke
                     };
                 });

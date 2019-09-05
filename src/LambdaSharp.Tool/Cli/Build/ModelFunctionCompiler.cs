@@ -827,10 +827,10 @@ namespace LambdaSharp.Tool.Cli.Build {
 
             Humidifier.ApiGateway.Method CreateRequestResponseApiMethod(FunctionItem function, RestApiSource source) {
                 return new Humidifier.ApiGateway.Method {
-                    AuthorizationType = "NONE",
+                    AuthorizationType = string.IsNullOrEmpty(source.AuthorizationType) ? "NONE" :  source.AuthorizationType,
                     HttpMethod = source.HttpMethod,
                     OperationName = source.OperationName,
-                    ApiKeyRequired = source.ApiKeyRequired,
+                    ApiKeyRequired = source.ApiKeyRequired,                    
                     AuthorizerId = source.AuthorizerId,
                     AuthorizationScopes =  source.AuthorizationScopes,
                     ResourceId = parentId,
