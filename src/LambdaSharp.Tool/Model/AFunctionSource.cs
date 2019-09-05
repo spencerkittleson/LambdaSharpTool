@@ -70,7 +70,7 @@ namespace LambdaSharp.Tool.Model {
         public ApiGatewaySourceIntegration Integration { get; set; }
         public string OperationName { get; set; }
 
-        public string AuthorizerId { get; set; }
+        public object AuthorizerId { get; set; }
         public string[] AuthorizationScopes { get; set; }
         public bool? ApiKeyRequired { get; set; }
         public string AuthorizationType { get; set; }
