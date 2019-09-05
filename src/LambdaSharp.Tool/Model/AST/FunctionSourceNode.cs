@@ -33,6 +33,8 @@ namespace LambdaSharp.Tool.Model.AST {
                 "Integration",
                 "OperationName",
                 "ApiKeyRequired",
+                "AuthorizerId",
+                "AuthorizationScopes",
                 "Invoke"
             },
             ["Schedule"] = new[] {
@@ -77,6 +79,9 @@ namespace LambdaSharp.Tool.Model.AST {
         public string Integration { get; set; }
         public string OperationName { get; set; }
         public bool? ApiKeyRequired { get; set; }
+
+        public string AuthorizerId { get; set; }
+        public string[] AuthorizationScopes { get; set; }
         public string Invoke { get; set; }
 
         // CloudWatch Schedule Event Source
