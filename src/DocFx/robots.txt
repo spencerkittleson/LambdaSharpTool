@@ -1,0 +1,2 @@
+User-agent: *
+Sitemap: https://lambdasharp.net/sitemap.xml

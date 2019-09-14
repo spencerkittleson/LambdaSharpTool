@@ -1,3 +1,8 @@
+---
+title: LambdaSharp CLI New Command - Add Lambda Function to Module
+description: Add a Lambda function to a LambdaSharp module
+keywords: cli, new, create, lambda, module
+---
 # Add New Function to Module File
 
 The `new function` command is used to add a function to an existing module. The command can either create a C# or a Javascript function using the `--language` option.
@@ -38,27 +43,33 @@ lash new function MyNewFunction
 (optional) Select programming language for generated code (default: csharp)
 </dd>
 
-<dt><code>--use-project-reference</code></dt>
+<dt><code>--type|-t &lt;TYPE&gt;</code></dt>
 <dd>
 
-(optional) Reference LambdaSharp libraries using a project reference (default behavior when LAMBDASHARP environment variable is set)
+(optional) Function type (one of: apigateway, customresource, generic, queue, schedule, topic, websocket; default: prompt)
 </dd>
 
-<dt><code>--use-nuget-reference</code></dt>
+<dt><code>--timeout &lt;SECONDS&gt;</code></dt>
 <dd>
 
-(optional) Reference LambdaSharp libraries using nuget references
+(optional) Function timeout in seconds (default: 30)
+</dd>
+
+<dt><code>--memory &lt;MB&gt;</code></dt>
+<dd>
+
+(optional) Function memory in megabytes (default: 256)
 </dd>
 
 </dl>
 
 ## Examples
 
-### Create a new C# function
+### Create a new, generic Lambda C# function
 
 __Using PowerShell/Bash:__
 ```bash
-lash new function MyNewFunction
+lash new function --type generic MyNewFunction
 ```
 
 Output:

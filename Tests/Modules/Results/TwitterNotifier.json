@@ -85,13 +85,6 @@
       "ConstraintDescription": "must either be a cross-module reference or a non-empty value",
       "Default": "$LambdaSharp-Core::LoggingStreamRole"
     },
-    "LambdaSharpCoreDefaultSecretKey": {
-      "Type": "String",
-      "Description": "Cross-module reference for LambdaSharp.Core::DefaultSecretKey",
-      "AllowedPattern": "^.+$",
-      "ConstraintDescription": "must either be a cross-module reference or a non-empty value",
-      "Default": "$LambdaSharp-Core::DefaultSecretKey"
-    },
     "DeploymentBucketName": {
       "Type": "String",
       "Description": "Deployment S3 Bucket Name"
@@ -112,7 +105,7 @@
     "DeploymentChecksum": {
       "Type": "String",
       "Description": "Deployment Checksum",
-      "Default": "CB971AE435625E8BE490AAD4E1273B9E"
+      "Default": "807420DC18FB052A764DAB1B364CA994"
     }
   },
   "Resources": {
@@ -137,6 +130,9 @@
           },
           "TwitterSentimentFilter": {
             "Ref": "TwitterSentimentFilter"
+          },
+          "Secrets": {
+            "Ref": "Secrets"
           },
           "DeploymentBucketName": {
             "Ref": "DeploymentBucketName"
@@ -168,9 +164,7 @@
             "Value": "LambdaSharp.Twitter.Query"
           }
         ],
-        "TemplateURL": {
-          "Fn::Sub": "https://s3.amazonaws.com/${DeploymentBucketName}/LambdaSharp/Modules/Twitter.Query/Versions/0.6.0.2/cloudformation.json"
-        },
+        "TemplateURL": "<BAD>",
         "TimeoutInMinutes": 15
       }
     },
@@ -194,7 +188,7 @@
           "S3Bucket": {
             "Ref": "DeploymentBucketName"
           },
-          "S3Key": "LambdaSharp/Modules/Demo.TwitterNotifier/Assets/NotifyFunction-DRYRUN.zip"
+          "S3Key": "<%MODULE_ORIGIN%>/Demo/TwitterNotifier/.artifacts/NotifyFunction-DRYRUN.zip"
         },
         "DeadLetterConfig": {
           "TargetArn": {
@@ -241,9 +235,12 @@
             "MODULE_ID": {
               "Ref": "AWS::StackName"
             },
-            "MODULE_INFO": "LambdaSharp.Demo.TwitterNotifier:1.0-DEV",
+            "MODULE_INFO": "Demo.TwitterNotifier:1.0-DEV",
             "LAMBDA_NAME": "NotifyFunction",
             "LAMBDA_RUNTIME": "dotnetcore2.1",
+            "DEPLOYMENTBUCKETNAME": {
+              "Ref": "DeploymentBucketName"
+            },
             "DEADLETTERQUEUE": {
               "Fn::If": [
                 "UseCoreServices",
@@ -282,44 +279,6 @@
                 }
               ]
             },
-            "DEFAULTSECRETKEY": {
-              "Fn::If": [
-                "UseCoreServices",
-                {
-                  "Fn::If": [
-                    "LambdaSharpCoreDefaultSecretKeyIsImported",
-                    {
-                      "Fn::ImportValue": {
-                        "Fn::Sub": [
-                          "${DeploymentPrefix}${Import}",
-                          {
-                            "Import": {
-                              "Fn::Select": [
-                                "1",
-                                {
-                                  "Fn::Split": [
-                                    "$",
-                                    {
-                                      "Ref": "LambdaSharpCoreDefaultSecretKey"
-                                    }
-                                  ]
-                                }
-                              ]
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "Ref": "LambdaSharpCoreDefaultSecretKey"
-                    }
-                  ]
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
             "STR_TWITTERQUERY": {
               "Ref": "TwitterQuery"
             },
@@ -343,17 +302,6 @@
                 }
               ]
             },
-            "STR_MODULE_ROLE_DEFAULTSECRETKEYPOLICY": {
-              "Fn::If": [
-                "UseCoreServices",
-                {
-                  "Ref": "ModuleRoleDefaultSecretKeyPolicy"
-                },
-                {
-                  "Ref": "AWS::NoValue"
-                }
-              ]
-            },
             "STR_MODULE_ROLE_SECRETSPOLICY": {
               "Fn::If": [
                 "ModuleRoleSecretsPolicyCondition",
@@ -367,7 +315,7 @@
             }
           }
         },
-        "Handler": "NotifyFunction::LambdaSharp.Demo.TwitterNotifier.NotifyFunction.Function::FunctionHandlerAsync",
+        "Handler": "NotifyFunction::Demo.TwitterNotifier.NotifyFunction.Function::FunctionHandlerAsync",
         "MemorySize": "256",
         "Role": {
           "Fn::GetAtt": [
@@ -451,6 +399,16 @@
                   "Resource": "arn:aws:logs:*:*:*"
                 },
                 {
+                  "Sid": "CloudFormation",
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudformation:DescribeStacks"
+                  ],
+                  "Resource": {
+                    "Ref": "AWS::StackId"
+                  }
+                },
+                {
                   "Sid": "AWSXRay",
                   "Effect": "Allow",
                   "Action": [
@@ -461,6 +419,16 @@
                     "xray:PutTraceSegments"
                   ],
                   "Resource": "*"
+                },
+                {
+                  "Sid": "DeploymentBucketReadOnly",
+                  "Effect": "Allow",
+                  "Action": [
+                    "s3:GetObject"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:s3:::${DeploymentBucketName}/<%MODULE_ORIGIN%>/Demo/TwitterNotifier/.artifacts/*"
+                  }
                 }
               ]
             },
@@ -535,71 +503,6 @@
         ]
       }
     },
-    "ModuleRoleDefaultSecretKeyPolicy": {
-      "Type": "AWS::IAM::Policy",
-      "Condition": "UseCoreServices",
-      "Properties": {
-        "PolicyDocument": {
-          "Version": "2012-10-17",
-          "Statement": [
-            {
-              "Sid": "DefaultSecretKey",
-              "Effect": "Allow",
-              "Action": [
-                "kms:Decrypt",
-                "kms:Encrypt"
-              ],
-              "Resource": {
-                "Fn::If": [
-                  "UseCoreServices",
-                  {
-                    "Fn::If": [
-                      "LambdaSharpCoreDefaultSecretKeyIsImported",
-                      {
-                        "Fn::ImportValue": {
-                          "Fn::Sub": [
-                            "${DeploymentPrefix}${Import}",
-                            {
-                              "Import": {
-                                "Fn::Select": [
-                                  "1",
-                                  {
-                                    "Fn::Split": [
-                                      "$",
-                                      {
-                                        "Ref": "LambdaSharpCoreDefaultSecretKey"
-                                      }
-                                    ]
-                                  }
-                                ]
-                              }
-                            }
-                          ]
-                        }
-                      },
-                      {
-                        "Ref": "LambdaSharpCoreDefaultSecretKey"
-                      }
-                    ]
-                  },
-                  {
-                    "Ref": "AWS::NoValue"
-                  }
-                ]
-              }
-            }
-          ]
-        },
-        "PolicyName": {
-          "Fn::Sub": "${AWS::StackName}ModuleRoleDefaultSecretKey"
-        },
-        "Roles": [
-          {
-            "Ref": "ModuleRole"
-          }
-        ]
-      }
-    },
     "ModuleRoleSecretsPolicy": {
       "Type": "AWS::IAM::Policy",
       "Condition": "ModuleRoleSecretsPolicyCondition",
@@ -645,7 +548,7 @@
           }
         },
         "ResourceType": "LambdaSharp::Registration::Module",
-        "Module": "LambdaSharp.Demo.TwitterNotifier:1.0-DEV",
+        "Module": "Demo.TwitterNotifier:1.0-DEV",
         "ModuleId": {
           "Ref": "AWS::StackName"
         }
@@ -807,10 +710,28 @@
   },
   "Outputs": {
     "Module": {
-      "Value": "LambdaSharp.Demo.TwitterNotifier:1.0-DEV"
+      "Value": "Demo.TwitterNotifier:1.0-DEV@<%MODULE_ORIGIN%>"
+    },
+    "ModuleChecksum": {
+      "Value": "807420DC18FB052A764DAB1B364CA994"
     },
     "LambdaSharpTool": {
-      "Value": "0.6.0.3"
+      "Value": "0.7.0"
+    },
+    "LambdaSharpTier": {
+      "Value": {
+        "Fn::Select": [
+          "0",
+          {
+            "Fn::Split": [
+              "-",
+              {
+                "Ref": "DeploymentPrefix"
+              }
+            ]
+          }
+        ]
+      }
     }
   },
   "Conditions": {
@@ -948,40 +869,6 @@
         }
       ]
     },
-    "LambdaSharpCoreDefaultSecretKeyIsImported": {
-      "Fn::And": [
-        {
-          "Fn::Not": [
-            {
-              "Fn::Equals": [
-                {
-                  "Ref": "LambdaSharpCoreDefaultSecretKey"
-                },
-                ""
-              ]
-            }
-          ]
-        },
-        {
-          "Fn::Equals": [
-            {
-              "Fn::Select": [
-                "0",
-                {
-                  "Fn::Split": [
-                    "$",
-                    {
-                      "Ref": "LambdaSharpCoreDefaultSecretKey"
-                    }
-                  ]
-                }
-              ]
-            },
-            ""
-          ]
-        }
-      ]
-    },
     "ModuleRoleSecretsPolicyCondition": {
       "Fn::Not": [
         {
@@ -1033,9 +920,6 @@
         },
         "LambdaSharpCoreLoggingStreamRole": {
           "default": "LoggingStreamRole [String]"
-        },
-        "LambdaSharpCoreDefaultSecretKey": {
-          "default": "DefaultSecretKey [String]"
         },
         "DeploymentBucketName": {
           "default": "Deployment S3 bucket name [String]"
@@ -1098,8 +982,7 @@
           "Parameters": [
             "LambdaSharpCoreDeadLetterQueue",
             "LambdaSharpCoreLoggingStream",
-            "LambdaSharpCoreLoggingStreamRole",
-            "LambdaSharpCoreDefaultSecretKey"
+            "LambdaSharpCoreLoggingStreamRole"
           ]
         },
         {
@@ -1117,8 +1000,12 @@
       ]
     },
     "LambdaSharp::Manifest": {
-      "Version": "2018-12-31",
-      "Module": "LambdaSharp.Demo.TwitterNotifier:1.0-DEV",
+      "Version": "2019-07-04",
+      "Module": "Demo.TwitterNotifier:1.0-DEV",
+      "Description": "Listen for specific tweets and publish to an email address via SNS topic",
+      "TemplateChecksum": "807420DC18FB052A764DAB1B364CA994",
+      "Date": "2019-08-09T15:00:00Z",
+      "CoreServicesVersion": "0.7.0",
       "ParameterSections": [
         {
           "Title": "Twitter Settings",
@@ -1136,7 +1023,9 @@
             {
               "Name": "TwitterQuery",
               "Type": "String",
-              "Label": "Search query"
+              "Label": "Search query",
+              "AllowedPattern": ".+",
+              "ConstraintDescription": "Search query must be a non-empty string"
             },
             {
               "Name": "TwitterLanguageFilter",
@@ -1152,7 +1041,15 @@
             {
               "Name": "TwitterSentimentFilter",
               "Type": "String",
-              "Default": "SKIP"
+              "Default": "SKIP",
+              "AllowedValues": [
+                "SKIP",
+                "POSITIVE",
+                "NEUTRAL",
+                "NEGATIVE",
+                "MIXED",
+                "ALL"
+              ]
             }
           ]
         },
@@ -1162,7 +1059,9 @@
             {
               "Name": "NotificationEmail",
               "Type": "String",
-              "Label": "Email address to NotifyFunction with found tweets"
+              "Label": "Email address to NotifyFunction with found tweets",
+              "AllowedPattern": ".+@.+",
+              "ConstraintDescription": "Must be a valid email address"
             }
           ]
         },
@@ -1179,13 +1078,22 @@
               "Name": "XRayTracing",
               "Type": "String",
               "Label": "Enable AWS X-Ray tracing mode for module resources",
-              "Default": "Disabled"
+              "Default": "Disabled",
+              "AllowedValues": [
+                "Disabled",
+                "RootModule",
+                "AllModules"
+              ]
             },
             {
               "Name": "LambdaSharpCoreServices",
               "Type": "String",
               "Label": "Integrate with LambdaSharp.Core services",
-              "Default": "Disabled"
+              "Default": "Disabled",
+              "AllowedValues": [
+                "Disabled",
+                "Enabled"
+              ]
             }
           ]
         },
@@ -1197,49 +1105,55 @@
               "Type": "String",
               "Label": "DeadLetterQueue",
               "Default": "$LambdaSharp-Core::DeadLetterQueue",
-              "Import": "LambdaSharp.Core::DeadLetterQueue"
+              "Import": "LambdaSharp.Core::DeadLetterQueue",
+              "AllowedPattern": "^.+$",
+              "ConstraintDescription": "must either be a cross-module reference or a non-empty value"
             },
             {
               "Name": "LambdaSharpCoreLoggingStream",
               "Type": "String",
               "Label": "LoggingStream",
               "Default": "$LambdaSharp-Core::LoggingStream",
-              "Import": "LambdaSharp.Core::LoggingStream"
+              "Import": "LambdaSharp.Core::LoggingStream",
+              "AllowedPattern": "^.+$",
+              "ConstraintDescription": "must either be a cross-module reference or a non-empty value"
             },
             {
               "Name": "LambdaSharpCoreLoggingStreamRole",
               "Type": "String",
               "Label": "LoggingStreamRole",
               "Default": "$LambdaSharp-Core::LoggingStreamRole",
-              "Import": "LambdaSharp.Core::LoggingStreamRole"
-            },
-            {
-              "Name": "LambdaSharpCoreDefaultSecretKey",
-              "Type": "String",
-              "Label": "DefaultSecretKey",
-              "Default": "$LambdaSharp-Core::DefaultSecretKey",
-              "Import": "LambdaSharp.Core::DefaultSecretKey"
+              "Import": "LambdaSharp.Core::LoggingStreamRole",
+              "AllowedPattern": "^.+$",
+              "ConstraintDescription": "must either be a cross-module reference or a non-empty value"
             }
           ]
         }
       ],
-      "RuntimeCheck": true,
-      "Hash": "CB971AE435625E8BE490AAD4E1273B9E",
       "Git": {
         "Branch": "test-branch",
         "SHA": "0123456789ABCDEF0123456789ABCDEF01234567"
       },
+      "Artifacts": [],
       "Dependencies": [
         {
-          "ModuleFullName": "LambdaSharp.Core",
-          "MinVersion": "0.6"
+          "ModuleInfo": "LambdaSharp.Core:0.7.0@lambdasharp",
+          "Type": "Shared"
+        },
+        {
+          "ModuleInfo": "LambdaSharp.Twitter.Query:0.7.0@lambdasharp",
+          "Type": "Nested"
         }
       ],
+      "ResourceTypes": [],
+      "Outputs": []
+    },
+    "LambdaSharp::NameMappings": {
+      "Version": "2019-07-04",
       "ResourceNameMappings": {
         "NotifyFunctionLogGroup": "NotifyFunction::LogGroup",
         "ModuleRole": "Module::Role",
         "ModuleRoleDeadLetterQueuePolicy": "Module::Role::DeadLetterQueuePolicy",
-        "ModuleRoleDefaultSecretKeyPolicy": "Module::Role::DefaultSecretKeyPolicy",
         "ModuleRoleSecretsPolicy": "Module::Role::SecretsPolicy",
         "ModuleRegistration": "Module::Registration",
         "NotifyFunctionRegistration": "NotifyFunction::Registration",

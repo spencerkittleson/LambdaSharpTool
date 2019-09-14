@@ -2,7 +2,7 @@
 
 # LambdaSharp SNS Topic Source
 
-Before you begin, make sure to [setup your λ# CLI](https://lambdasharp.net/articles/Setup.html).
+Before you begin, make sure to [setup your LambdaSharp CLI](https://lambdasharp.net/articles/Setup.html).
 
 ## Module Definition
 
@@ -11,7 +11,7 @@ Creating a function that is invoked by an SNS topics requires two steps. First, 
 Lambda functions require the `sns:Subscribe` permission on the SNS topic. Either request it explicitly or use a [resource permission shorthand](../src/LambdaSharp.Tool/Resources/IAM-Mappings.yml) instead.
 
 ```yaml
-Module: LambdaSharp.Sample.Sns
+Module: Sample.Sns
 Description: A sample module using an SNS topic
 Items:
 
@@ -70,7 +70,7 @@ public class Function : ALambdaTopicFunction<MyMessage> {
 
 ## Reference
 
-The λ# CLI automatically creates the required permissions to allow the subscribed SNS topic to invoke the Lambda function.
+The LambdaSharp CLI automatically creates the required permissions to allow the subscribed SNS topic to invoke the Lambda function.
 
 Thw following YAML shows the permission granted to the AWS SNS service.
 

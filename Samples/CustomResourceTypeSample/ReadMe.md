@@ -2,14 +2,14 @@
 
 # LambdaSharp Custom Resource Type Definition
 
-Before you begin, make sure to [setup your λ# CLI](https://lambdasharp.net/articles/Setup.html).
+Before you begin, make sure to [setup your LambdaSharp CLI](https://lambdasharp.net/articles/Setup.html).
 
 ## Module Definition
 
 A custom resource type is defined with the `ResourceType` attribute. The resource type definition is global to the deployment tier, which means that the associated resource type (e.g. `MyNamespace::MyResource`) can only be defined once.
 
 ```yaml
-Module: LambdaSharp.Sample.CustomResourceType
+Module: Sample.CustomResourceType
 Description: A sample module for defining a custom resource
 Items:
 
@@ -41,7 +41,7 @@ Module: MyModule
 Description: A sample module that uses a custom resource
 Using:
 
-    - Module: LambdaSharp.Sample.CustomResourceType
+    - Module: Sample.CustomResourceType
 
 Items:
 

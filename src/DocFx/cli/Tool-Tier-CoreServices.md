@@ -1,18 +1,23 @@
-# Show/Update λ# Core Services configuration
+---
+title: LambdaSharp CLI Tier Command - Show Core Services Status
+description: Show and update the LambdaSharp core services state for deployed modules
+keywords: cli, core services, status, update, enable, disable
+---
+# Show/Update LambdaSharp Core Services Status for Deploy Modules
 
-The `tier coreservices` command is used to show and updates the λ# Core Services configuration for deployed modules in a deployment tier.
+The `tier coreservices` command is used to show and updates the LambdaSharp Core Services configuration for deployed modules in a deployment tier.
 
 ## Options
 
 <dl>
 
-<dt><code>--enable</code></dt>
+<dt><code>--enabled</code></dt>
 <dd>
 
 (optional) Enable LambdaSharp.Core services for all modules
 </dd>
 
-<dt><code>--disable</code></dt>
+<dt><code>--disabled</code></dt>
 <dd>
 
 (optional) Disable LambdaSharp.Core services for all modules
@@ -52,7 +57,7 @@ Disable colored ANSI terminal output
 
 ## Examples
 
-### Show λ# Core Services status for all deployed modules
+### Show LambdaSharp Core Services status for all deployed modules
 
 __Using PowerShell/Bash:__
 ```bash
@@ -68,12 +73,12 @@ Found 3 modules for deployment tier 'Sandbox'
 NAME                                MODULE                                      STATUS             CORE-SERVICES
 LambdaSharp-S3-IO                   LambdaSharp.S3.IO:0.6.0.2                   UPDATE_COMPLETE    ENABLED
 LambdaSharp-S3-Subscriber           LambdaSharp.S3.Subscriber:0.6.0.2           UPDATE_COMPLETE    ENABLED
-LambdaSharp-Demo-TwitterNotifier    LambdaSharp.Demo.TwitterNotifier:1.0-DEV    UPDATE_COMPLETE    ENABLED
+LambdaSharp-Demo-TwitterNotifier    Demo.TwitterNotifier:1.0-DEV    UPDATE_COMPLETE    ENABLED
 
 Done (finished: 6/26/2019 10:16:45 PM; duration: 00:00:02.7702739)
 ```
 
-### Disable λ# Core Services for all deployed modules
+### Disable LambdaSharp Core Services for all deployed modules
 
 __Using PowerShell/Bash:__
 ```bash
@@ -89,7 +94,7 @@ Found 3 modules for deployment tier 'Sandbox'
 NAME                                MODULE                                      STATUS             CORE-SERVICES
 LambdaSharp-S3-IO                   LambdaSharp.S3.IO:0.6.0.2                   UPDATE_COMPLETE    ENABLED
 LambdaSharp-S3-Subscriber           LambdaSharp.S3.Subscriber:0.6.0.2           UPDATE_COMPLETE    ENABLED
-LambdaSharp-Demo-TwitterNotifier    LambdaSharp.Demo.TwitterNotifier:1.0-DEV    UPDATE_COMPLETE    ENABLED
+LambdaSharp-Demo-TwitterNotifier    Demo.TwitterNotifier:1.0-DEV    UPDATE_COMPLETE    ENABLED
 
 => Stack update initiated for Sandbox-LambdaSharp-S3-IO
 UPDATE_COMPLETE    AWS::CloudFormation::Stack             Sandbox-LambdaSharp-S3-IO
@@ -127,7 +132,7 @@ Found 3 modules for deployment tier 'Sandbox'
 NAME                                MODULE                                      STATUS             CORE-SERVICES
 LambdaSharp-S3-IO                   LambdaSharp.S3.IO:0.6.0.2                   UPDATE_COMPLETE    DISABLED
 LambdaSharp-S3-Subscriber           LambdaSharp.S3.Subscriber:0.6.0.2           UPDATE_COMPLETE    DISABLED
-LambdaSharp-Demo-TwitterNotifier    LambdaSharp.Demo.TwitterNotifier:1.0-DEV    UPDATE_COMPLETE    DISABLED
+LambdaSharp-Demo-TwitterNotifier    Demo.TwitterNotifier:1.0-DEV    UPDATE_COMPLETE    DISABLED
 
 Done (finished: 6/26/2019 10:26:30 PM; duration: 00:02:59.1804694)
 ```

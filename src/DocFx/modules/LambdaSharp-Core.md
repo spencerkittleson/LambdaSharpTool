@@ -1,9 +1,15 @@
+---
+title: LambdaSharp.Core - LambdaSharp Module
+description: Documentation for LambdaSharp.Core module
+keywords: module, core, documentation, overview
+---
+
 # Module: LambdaSharp.Core
 _Version:_ [!include[LAMBDASHARP_VERSION](../version.txt)]
 
 ## Overview
 
-The `LambdaSharp.Core` module defines the core resources and resource types for deploying λ# modules. This module is included automatically by all λ# modules.
+The `LambdaSharp.Core` module defines the core resources and resource types for deploying LambdaSharp modules. This module is included automatically by all LambdaSharp modules.
 
 ## Resource Types
 1. [LambdaSharp::Registration::Module](LambdaSharp-Registration-Module.md)
@@ -55,32 +61,11 @@ The <code>LoggingStreamShardCount</code> parameter sets the number of Kinesis sh
 <i>Type:</i> Number
 </dd>
 
-<dt><code>DefaultSecretKey</code></dt>
-<dd>
-
-The <code>DefaultSecretKey</code> parameter sets the default secret key for functions or creates a new key if left blank.
-
-<i>Required</i>: No (Default: create new AWS::KMS::Key)
-
-<i>Type:</i> AWS::KMS::Key
-</dd>
-
-<dt><code>DefaultSecretKeyRotationEnabled</code></dt>
-<dd>
-
-The <code>DefaultSecretKeyRotationEnabled</code> parameter enables rotating KMS key automatically every 365 days.
-
-<i>Required</i>: No (Default: false)
-
-<i>Type:</i> String (either <code>true</code> or <code>false</code>)
-
-</dd>
-
 </dl>
 
 ### Rollbar Settings
 
-The following settings are required to use the [Rollbar](https://rollbar.com/) integration for the λ# Core module.
+The following settings are required to use the [Rollbar](https://rollbar.com/) integration for the LambdaSharp Core module.
 
 <dl>
 
@@ -137,14 +122,6 @@ The <code>DeadLetterQueue</code> output contains the dead letter queue for funct
 The <code>LoggingStream</code> output contains the logging Kinesis stream for functions.
 
 <i>Type:</i> AWS::Kinesis::Stream
-</dd>
-
-<dt><code>DefaultSecretKey</code></dt>
-<dd>
-
-The <code>DefaultSecretKey</code> output contains the default secret key for functions.
-
-<i>Type:</i> AWS::KMS::Key
 </dd>
 
 <dt><code>LoggingStreamRole</code></dt>

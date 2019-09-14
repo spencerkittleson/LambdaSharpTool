@@ -1,3 +1,9 @@
+---
+title: Setup LambdaSharp
+description: Getting started with LambdaSharp
+keywords: video, tutorial, getting started, overview, setup, install
+---
+
 ![λ#](~/images/LambdaSharpLogo.png)
 
 # Setup LambdaSharp
@@ -11,16 +17,16 @@ To get started, make sure you have signed-up for an AWS account and downloaded t
 1. [.NET Core 2.1+](https://www.microsoft.com/net/download)
 
 
-## Step 1: Installing λ# CLI
+## Step 1: Installing LambdaSharp CLI
 
-The λ# CLI can be installed as a global `dotnet` tool by running the `dotnet` tool installation command:
+The LambdaSharp CLI can be installed as a global `dotnet` tool by running the `dotnet` tool installation command:
 
 __Using PowerShell/Bash:__
 ```bash
 dotnet tool install -g LambdaSharp.Tool
 ```
 
-Alternatively, for λ# contributors, the CLI can be setup using the [GitHub repository](https://github.com/LambdaSharp/LambdaSharpTool). See the λ# contributor installation instructions below.
+Alternatively, for LambdaSharp contributors, the CLI can be setup using the [GitHub repository](https://github.com/LambdaSharp/LambdaSharpTool). See the LambdaSharp contributor installation instructions below.
 
 Once installed, validate that the command works by running it.
 
@@ -31,7 +37,7 @@ lash
 
 The following text should appear (or similar):
 ```
-LambdaSharp CLI (v0.5)
+LambdaSharp CLI (v0.7.0)
 
 Project Home: https://github.com/LambdaSharp/LambdaSharpTool
 
@@ -42,65 +48,59 @@ Options:
 
 Commands:
   build         Build LambdaSharp module
-  config        Configure LambdaSharp CLI
   deploy        Deploy LambdaSharp module
   encrypt       Encrypt Value
   info          Show LambdaSharp information
-  init          Initialize LambdaSharp deployment tier
+  init          Create or update a LambdaSharp deployment tier
   list          List deployed LambdaSharp modules
-  new           Create new LambdaSharp module or function
+  new           Create new LambdaSharp module, function, or resource
   publish       Publish LambdaSharp module
+  tier          Update settings module in LambdaSharp tier
   util          Miscellaneous AWS utilities
 
 Run 'lash [command] --help' for more information about a command.
 ```
 
-## Step 2: Configure λ# CLI
+## Step 2: Initialize a LambdaSharp Deployment Tier
 
-The λ# CLI must be configured before it can be used. The configuration step optionally creates needed resources for deploying λ# modules and captures deployment preferences.
+The LambdaSharp CLI must initialize a deployment tier before it can be used. The initialization creates the needed resources for deploying LambdaSharp modules. Multiple deployment tiers can be created by using the `--tier` option (e.g. `Test`, `Stage`, `Prod`, etc.), which prefixes the deployment tier name.
 
-__Using PowerShell/Bash:__
-```bash
-lash config
-```
+A deployment tier can be initialized with or without LambdaSharp.Core services. The LambdaSharp.Core services provide functionality for tracking errors across deployed modules and are recommended for testing, staging, and production deployment tiers.
 
-The λ# CLI can be configured for multiple CLI profiles using the `--cli-profile` option. When omitted, the _Default_ CLI profile is assumed. The λ# CLI configuration options are stored in [AWS System Manager Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html), so they can be shared across teams on the same AWS account.
-
-## Step 3: Initialize λ# Deployment Tier
-
-The λ# CLI must initialize each deployment tier (e.g. `Test`, `Stage`, `Prod`, etc.) with the λ# Core module before additional modules can be deployed.
+As a convenience, the `--quick-start` option streamlines the process of setting up a deployment tier and is recommended for personal work and demos.
 
 __Using PowerShell/Bash:__
 ```bash
-lash init --tier Sandbox
-```
-
-__NOTE:__ This step must to be repeated for each deployment tier (e.g. `Test`, `Stage`, `Prod`, etc.).
-
-Run the `list` command to confirm that all λ# modules were deployed successfully:
-
-__Using PowerShell/Bash:__
-```bash
-lash list --tier Sandbox
+lash init --quick-start
 ```
 
 The following text should appear (or similar):
 ```
-LambdaSharp CLI (v0.6) - List deployed LambdaSharp modules
+LambdaSharp CLI (v0.7.0) - Create or update a LambdaSharp deployment tier
+Creating LambdaSharp tier
+=> Stack creation initiated for LambdaSharp-Core
+CREATE_COMPLETE    AWS::CloudFormation::Stack    LambdaSharp-Core
+CREATE_COMPLETE    AWS::S3::Bucket               DeploymentBucketResource
+=> Stack creation finished
+=> Checking API Gateway role
 
-Found 1 modules for deployment tier 'Default'
-
-NAME                MODULE                  STATUS             DATE
-LambdaSharp-Core    LambdaSharp.Core:0.6    UPDATE_COMPLETE    2019-04-05 10:36:49
-
-Done (finished: 1/17/2019 3:09:22 PM; duration: 00:00:03.5455994)
+Done (finished: 8/15/2019 2:53:45 PM; duration: 00:00:33.2020715)
 ```
 
-## Optional: Define Environment Variables
+## (Optional) Enable LambdaSharp.Core Services
 
-The following environment variables are checked when their corresponding options are omitted from the λ# command line.
+The LambdaSharp.Core services provide functionality for tracking errors across deployed modules and are recommended for testing, staging, and production deployment tiers. An existing deployment tier can easily be updated to enable or disable the LambdaSharp.Core services.
+
+__Using PowerShell/Bash:__
+```bash
+lash init --core-services enabled
+```
+
+## (Optional) Define Environment Variables
+
+The following environment variables are checked when their corresponding options are omitted from the LambdaSharp command line.
 * `LAMBDASHARP_TIER`: Replaces the need for the `--tier` option.
-* `LAMBDASHARP_PROFILE`: Replaces the need for the `--cli-profile` option.
+* `AWS_PROFILE`: Replaces the need for the `--aws-profile` option.
 
 __Using PowerShell:__
 ```powershell
@@ -112,32 +112,24 @@ __Using Bash:__
 export LAMBDASHARP_TIER=Sandbox
 ```
 
-## Optional: Customize LambdaSharp Core Settings
+## (Optional) Customize LambdaSharp Core Settings
 
-The following λ# Core module settings can be adjusted in the AWS console by updating the deployed CloudFormation stack.
+The following LambdaSharp Core module settings can be adjusted in the AWS console by updating the deployed CloudFormation stack.
 
 |Parameter|Description|Default|
 |---|---|---|
 |`LoggingStreamRetentionPeriod`|How long logging stream entries are kept before they are lost|24|
-|`DefaultSecretKeyRotationEnabled`|Rotate KMS key automatically every 365 days|false|
+|`LoggingStreamShardCount`|Number of Kinesis shards for the logging streams|1|
 
-## Optional: Add S3 Module Locations
+## (Optional) Subscribe to `ErrorReportTopic` Topic
 
-The following λ# CLI settings can be adjusted in the AWS console by accessing the Parameter Store in the Systems Manager.
+The LambdaSharp Core module analyzes the output of all deployed functions. When an issue occurs, the Core module sends a notification on the SNS `ErrorReportTopic`.
 
-|Parameter|Description|Default|
-|---|---|---|
-|`/LambdaSharpTool/${CLI Profile}/ModuleBucketNames`|Comma-separated list of S3 bucket names used by the CLI to find modules|`${DeploymentBucket},lambdasharp-${AWS::Region}`|
+## (Optional) Setup Rollbar Integration
 
-## Optional: Subscribe to `ErrorReportTopic` Topic
+The LambdaSharp Core module can optionally be configured to send errors and warnings to [Rollbar](https://rollbar.com/). To enable this functionality, the LambdaSharp Core module needs the _read_ and _write_ access tokens for the account, which can be found in the _Account Settings_ page.
 
-The λ# Core module analyzes the output of all deployed functions. When an issue occurs, the Core module sends a notification on the SNS `ErrorReportTopic`.
-
-## Optional: Setup Rollbar Integration
-
-The λ# Core module can optionally be configured to send errors and warnings to [Rollbar](https://rollbar.com/). To enable this functionality, the λ# Core module needs the _read_ and _write_ access tokens for the account, which can be found in the _Account Settings_ page.
-
-The λ# Core module expects the access tokens to be encrypted, which can easily be done with the [`lash encrypt`](~/cli/Tool-Encrypt.md) command.
+The LambdaSharp Core module expects the access tokens to be encrypted, which can easily be done with the [`lash encrypt`](~/cli/Tool-Encrypt.md) command.
 
 |Parameter|Description|Default|
 |---|---|---|
@@ -145,16 +137,16 @@ The λ# Core module expects the access tokens to be encrypted, which can easily 
 |`RollbarWriteAccessToken`|Account-level token for write operations|""|
 |`RollbarProjectPrefix`|Optional prefix when creating Rollbar projects|""|
 
-# For λ# Contributors: Installing λ# from GitHub
+# For LambdaSharp Contributors: Installing LambdaSharp from GitHub
 
-λ# is distributed as [GitHub repository](https://github.com/LambdaSharp/LambdaSharpTool). Switch to your preferred folder for Git projects and create a clone of the λ# repository.
+LambdaSharp is distributed as [GitHub repository](https://github.com/LambdaSharp/LambdaSharpTool). Switch to your preferred folder for Git projects and create a clone of the LambdaSharp repository.
 
 __Using PowerShell/Bash:__
 ```bash
 git clone https://github.com/LambdaSharp/LambdaSharpTool.git
 ```
 
-Define the `LAMBDASHARP` environment variable to point to the folder of the `LambdaSharpTool` clone. Furthermore, define `lash` as an alias to invoke the λ# CLI. The following script assumes λ# was cloned into the `/Repos/LambdaSharpTool` directory.
+Define the `LAMBDASHARP` environment variable to point to the folder of the `LambdaSharpTool` clone. Furthermore, define `lash` as an alias to invoke the LambdaSharp CLI. The following script assumes LambdaSharp was cloned into the `/Repos/LambdaSharpTool` directory.
 
 __Using PowerShell:__
 ```powershell

@@ -2,7 +2,7 @@
 
 # LambdaSharp SQS Queue Source
 
-Before you begin, make sure to [setup your λ# CLI](https://lambdasharp.net/articles/Setup.html).
+Before you begin, make sure to [setup your LambdaSharp CLI](https://lambdasharp.net/articles/Setup.html).
 
 ## Module Definition
 
@@ -13,7 +13,7 @@ Optionally, the `Sqs` attribute can specify the maximum number of messages to re
 > **NOTE**: Beware the Lambda function timeout must be less than the SQS message visibility timeout, otherwise the deployment will fail.
 
 ```yaml
-Module: LambdaSharp.Sample.Sqs
+Module: Sample.Sqs
 Description: A sample module using SQS queues
 Items:
 

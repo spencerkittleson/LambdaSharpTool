@@ -1,3 +1,8 @@
+---
+title: Condition Declaration - Module
+description: LambdaSharp YAML syntax for CloudFormation conditions
+keywords: condition, declaration, syntax, yaml, cloudformation
+---
 # Condition
 
 The `Condition` definition specifies a statement that defines the circumstances under which entities are created or configured.
@@ -66,7 +71,7 @@ The <code>Value</code> attribute specifies a boolean expression using the intrin
   Properties:
     ImageId: ami-0ff8a91507f77f867
 
-- Namespace: ProductionResources
+- Group: ProductionResources
   Items:
 
     - Condition: Create

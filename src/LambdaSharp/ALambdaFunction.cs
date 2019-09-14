@@ -1,10 +1,7 @@
 /*
- * MindTouch λ#
- * Copyright (C) 2018-2019 MindTouch, Inc.
- * www.mindtouch.com  oss@mindtouch.com
- *
- * For community documentation and downloads visit mindtouch.com;
- * please review the licensing section.
+ * LambdaSharp (λ#)
+ * Copyright (C) 2018-2019
+ * lambdasharp.net
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +18,9 @@
 
 using System;
 using System.Collections;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -55,15 +50,15 @@ namespace LambdaSharp {
         }
 
         /// <summary>
-        /// The <see cref="InfoStruct"/> struct exposes the function initialization settings.
+        /// The <see cref="FunctionInfo"/> struct exposes the function initialization settings.
         /// </summary>
-        protected struct InfoStruct {
+        protected struct FunctionInfo {
 
             //--- Fields ---
             private ALambdaFunction _function;
 
             //--- Constructors ---
-            internal InfoStruct(ALambdaFunction function) => _function = function;
+            internal FunctionInfo(ALambdaFunction function) => _function = function;
 
             //--- Properties ---
 
@@ -73,9 +68,9 @@ namespace LambdaSharp {
             public DateTime Started => _function._started;
 
             /// <summary>
-            /// The owner of the module.
+            /// The namespace of the module.
             /// </summary>
-            public string ModuleOwner => _function._moduleOwner;
+            public string ModuleNamespace => _function._moduleNamespace;
 
             /// <summary>
             /// The name of the module.
@@ -108,9 +103,9 @@ namespace LambdaSharp {
             public string DeadLetterQueueUrl => _function._deadLetterQueueUrl;
 
             /// <summary>
-            /// The KMS key ID of the module default secret key. This value can be <c>null</c> if the module has no default secrete key.
+            /// The S3 bucket name where the module artifacts are located.
             /// </summary>
-            public string DefaultSecretKeyId => _function._defaultSecretKeyId;
+            public string DeploymentBucketName => _function._deploymentBucketName;
         }
 
         /// <summary>
@@ -145,8 +140,8 @@ namespace LambdaSharp {
         private static int Invocations;
 
         //--- Class Methods ---
-        private static void ParseModuleString(string moduleInfo, out string moduleOwner, out string moduleName, out string moduleVersion) {
-            moduleOwner = null;
+        private static void ParseModuleString(string moduleInfo, out string moduleNamespace, out string moduleName, out string moduleVersion) {
+            moduleNamespace = null;
             moduleName = null;
             moduleVersion = null;
             if(moduleInfo == null) {
@@ -161,19 +156,19 @@ namespace LambdaSharp {
                 colon = moduleInfo.Length;
             }
 
-            // extract module owner and module name
+            // extract module namespace and module name
             var dot = moduleInfo.IndexOf('.');
             if(dot >= 0) {
-                moduleOwner = moduleInfo.Substring(0, dot);
+                moduleNamespace = moduleInfo.Substring(0, dot);
                 moduleName = moduleInfo.Substring(dot + 1, colon - dot - 1);
             }
         }
 
         //--- Fields ---
         private DateTime _started;
+        private string _deploymentBucketName;
         private string _deadLetterQueueUrl;
-        private string _defaultSecretKeyId;
-        private string _moduleOwner;
+        private string _moduleNamespace;
         private string _moduleName;
         private string _moduleId;
         private string _moduleVersion;
@@ -234,8 +229,8 @@ namespace LambdaSharp {
         /// <summary>
         /// Retrieve the Lambda function initialization settings.
         /// </summary>
-        /// <value>The <see cref="InfoStruct"/> value.</value>
-        protected InfoStruct Info => new InfoStruct(this);
+        /// <value>The <see cref="FunctionInfo"/> value.</value>
+        protected FunctionInfo Info => new FunctionInfo(this);
 
         /// <summary>
         /// Retrieve the <see cref="ErrorReportGenerator"/> instance used to generate error reports.
@@ -439,15 +434,15 @@ namespace LambdaSharp {
             // read configuration from environment variables
             _moduleId = envSource.Read("MODULE_ID");
             var moduleInfo = envSource.Read("MODULE_INFO");
-            ParseModuleString(moduleInfo, out var moduleOwner, out var moduleName, out var moduleVersion);
-            _moduleOwner = moduleOwner;
+            ParseModuleString(moduleInfo, out var moduleNamespace, out var moduleName, out var moduleVersion);
+            _moduleNamespace = moduleNamespace;
             _moduleName = moduleName;
             _moduleVersion = moduleVersion;
+            _deploymentBucketName = envSource.Read("DEPLOYMENTBUCKETNAME");
             var deadLetterQueueArn = envSource.Read("DEADLETTERQUEUE");
             if(deadLetterQueueArn != null) {
                 _deadLetterQueueUrl = AwsConverters.ConvertQueueArnToUrl(deadLetterQueueArn);
             }
-            _defaultSecretKeyId = envSource.Read("DEFAULTSECRETKEY");
             _functionId = envSource.Read("AWS_LAMBDA_FUNCTION_NAME");
             _functionName = envSource.Read("LAMBDA_NAME");
             var framework = envSource.Read("LAMBDA_RUNTIME");
@@ -455,8 +450,8 @@ namespace LambdaSharp {
             LogInfo($"MODULE_INFO = {moduleInfo}");
             LogInfo($"FUNCTION_NAME = {_functionName}");
             LogInfo($"FUNCTION_ID = {_functionId}");
+            LogInfo($"DEPLOYMENTBUCKETNAME = {_deploymentBucketName}");
             LogInfo($"DEADLETTERQUEUE = {_deadLetterQueueUrl ?? "NONE"}");
-            LogInfo($"DEFAULTSECRETKEY = {_defaultSecretKeyId ?? "NONE"}");
 
             // read optional git-info file
             string gitSha = null;
@@ -469,19 +464,19 @@ namespace LambdaSharp {
                 LogInfo($"GIT-BRANCH = {gitBranch ?? "NONE"}");
             }
 
-            // convert environment variables to lambda parameters
-            _appConfig = new LambdaConfig(new LambdaDictionarySource(await ReadParametersFromEnvironmentVariables()));
-
             // initialize error/warning reporter
             ErrorReportGenerator = new LambdaErrorReportGenerator(
                 _moduleId,
-                $"{_moduleOwner}.{_moduleName}:{_moduleVersion}",
+                $"{_moduleNamespace}.{_moduleName}:{_moduleVersion}",
                 _functionId,
                 _functionName,
                 framework,
                 gitSha,
                 gitBranch
             );
+
+            // convert environment variables to lambda parameters
+            _appConfig = new LambdaConfig(new LambdaDictionarySource(await ReadParametersFromEnvironmentVariables()));
         }
 
         /// <summary>
@@ -519,8 +514,8 @@ namespace LambdaSharp {
             // check if a dead-letter queue is configured
             if(!string.IsNullOrEmpty(_deadLetterQueueUrl)) {
                 await Provider.SendMessageToQueueAsync(_deadLetterQueueUrl, message, new[] {
-                    new KeyValuePair<string, string>("FailedMessageOrigin", origin.ToString()),
-                    new KeyValuePair<string, string>("FailedFunctionArn", CurrentContext.InvokedFunctionArn)
+                    new KeyValuePair<string, string>("LambdaSharp.FailedMessageOrigin", origin.ToString()),
+                    new KeyValuePair<string, string>("LambdaSharp.FailedFunctionArn", CurrentContext.InvokedFunctionArn)
                 });
             } else {
 
@@ -581,10 +576,10 @@ namespace LambdaSharp {
         /// <param name="encryptionKeyId">The KMS key ID used encrypt the plaintext bytes.</param>
         /// <param name="encryptionContext">An optional encryption context. Can be <c>null</c>.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        protected async Task<string> EncryptSecretAsync(string text, string encryptionKeyId = null, Dictionary<string, string> encryptionContext = null) {
+        protected async Task<string> EncryptSecretAsync(string text, string encryptionKeyId, Dictionary<string, string> encryptionContext = null) {
             return Convert.ToBase64String(await Provider.EncryptSecretAsync(
                 Encoding.UTF8.GetBytes(text),
-                encryptionKeyId ?? _defaultSecretKeyId,
+                encryptionKeyId ?? throw new ArgumentNullException(encryptionKeyId),
                 encryptionContext
             ));
         }
